@@ -1,0 +1,39 @@
+1.
+
+a. 
+
+i. To support 1TB disks, we would need to change the block and file layers to support longer block addresses (assuming block size doesn't scale linearly with disk size) because a 1TB disk would have many more blocks. For example, we'd use a 64bit int rather than a 32bit int. 
+  
+ii. Much larger files could be supported in a few ways. (1) We could change the file layer so that each inode contains more block numbers (ptrs to blocks) than 8. This may necessitate a change in the inode number layer as we'd have less inodes available b/c they are larger. (2) Or, we could change the file layer so that each inode's block pointers point to doubly indirect blocks. (3) Or, we could change the block layer so that each block is larger in size. So long as the file layer didn't hard code block size, it wouldn't need to be changed. These are just a few ways. Others are available like more complex data structures than indirect blocks (B+ tree was mentioned in book).
+
+iii. To support larger file and directory names, we'd need to change the inode number layer (I'm assuming this is the directory layer) so that each directory struct contained a larger name member. This may necessitate a change in the file name and path name layers as well to accommodate comparisons between larger strings.    
+
+b. (iii) would definitely require an API change for something like ls that uses the path and file layers as well as the inode table in the inode number layer. 
+
+
+2. 
+
+a. i-number
+namespace: The inode table     
+name-mapping algo: inode_iget maps inumbers to their inodes 
+universe of values: 1 to the total number of files or directories (inodes) on disk
+
+b. Absolute pathname
+namespace: The root directory
+name-mapping algo: path_to_inode maps an absolute pathname to an inode
+universe of values: Any valid pathname that begins at the root directory
+
+c. Block within a file
+namespace: The file blocks of an inode 
+name-mapping algo: inode_indexlookup maps the block within a file to its physical block
+universe of values: Can be any block number that can exist on the disk.
+
+
+3. I use diskimg_readsector in both file.c and inode.c. In both, if diskimg_readsector fails, the calling function returns -1. Therefore, I would simply need to handle calls to file_getblock, inode_iget, and inode_indexlookup that return -1 appropriately. If such calls are made in any file other than pathname.c (the only file that know which path we are reading), I would have the calling function return -1. Then, if the caller in pathname.c returns -1, I would be able to print out the pathname that is unreadable using the information passed to path_to_inode in pathname.c.     
+
+4. 
+a. I developed on a cluster machine.
+b. Nope.
+c. Took longer than I thought but rewarding. 
+d. Nope.
+e. Nope no EC.

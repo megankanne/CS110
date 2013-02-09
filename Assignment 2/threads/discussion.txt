@@ -1,0 +1,31 @@
+1.
+a. 
+Compare the concurrency supported by your system with the system we provided you without locks. Ignore the fact that the original system had race conditions that resulted in incorrect executions. Include a description of what commands or parts of commands are able to proceed concurrently in your system. Also discuss what can no longer be executed concurrently with your synchronization in place.
+
+I began by adding a lock to the struct for each account. 
+
+b.
+Describe your approach to eliminating deadlock possibilities from your system.
+Assume you are told your system needs to support two orders of magnitude more accounts and tellers but the same number of branches. What changes would you recommend to the bank software structure to support the additional concurrency to support address additional workload? Hint: consider what functionality reduction you could make to greatly increase the concurrency.
+
+2.
+Assume of the following bank scenario where the account balance and the amounts are 64bit unsigned integers (i.e. unsigned long long with our compilers). Assume you are running on a 64bit machine. The withdrawal function looks like:
+    int Withdrawal(Account *account, unsigned long long amount){
+      if (account->balance < amount) {
+        return ERROR_INSUFFICIENT_FUNDS;
+      }
+      account ->balance -= amount;
+      return ERROR_SUCCESS;
+    }
+
+a.
+Shortly after releasing the multithreaded version of the software, you read in the newspaper that an unemployed banker whose checking account was just about out of money discovers that he is now the world's richest person. Describe the race condition that could cause this to happen. Provide an explicit timing flow that describes the interleaving necessary for the race condition to appear.
+
+b.
+Would there be any difference in the answer to this question if the code was running on a 32bit machine?
+
+4.
+I developed on corn.
+
+5.
+No I didn't complete any EC.
