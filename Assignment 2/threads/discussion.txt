@@ -2,7 +2,9 @@
 a. 
 Compare the concurrency supported by your system with the system we provided you without locks. Ignore the fact that the original system had race conditions that resulted in incorrect executions. Include a description of what commands or parts of commands are able to proceed concurrently in your system. Also discuss what can no longer be executed concurrently with your synchronization in place.
 
-I began by adding a lock to the struct for each account. 
+I began by adding a lock to the struct for each account and to the struct for each branch. This allowed me to lock individual accounts for branches as necessary. Accounts are locked on every deposit/withdrawal/transfer. Branches are locked on any deposit/withdrawal/or inter-branch transfer (aka anytime the branch balance will change). Branches are not locked for intra-branch transfers (when the branch balance doesn't change) but the accounts are. 
+-insure that intra-branch transfers don't attempt to mess with branch balance
+-bank balance adds each branch's balance. So either lock bank for inter-branch transfers or condition var? or lock each branch in bank balance so that they can be read without change? (lock in same order!)      
 
 b.
 Describe your approach to eliminating deadlock possibilities from your system.
