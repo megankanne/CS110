@@ -1,0 +1,13 @@
+#ifndef _ERROR_H
+#define _ERROR_H
+
+enum {
+  ERROR_SUCCESS = 0,
+  ERROR_ACCOUNT_NOT_FOUND = 1,
+  ERROR_INSUFFICIENT_FUNDS = 2,
+  ERROR_BALANCE_MISMATCH = 3,
+  ERROR_MAX_NUM = 4,
+};
+
+
+#endif /* _ERROR_H */
