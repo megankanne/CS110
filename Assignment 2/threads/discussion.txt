@@ -1,30 +1,17 @@
 1.
 a. 
-Compare the concurrency supported by your system with the system we provided you without locks. Ignore the fact that the original system had race conditions that resulted in incorrect executions. Include a description of what commands or parts of commands are able to proceed concurrently in your system. Also discuss what can no longer be executed concurrently with your synchronization in place.
-
-I began by adding a lock to the struct for each account and to the struct for each branch. This allowed me to lock individual accounts for branches as necessary. Accounts are locked on every deposit/withdrawal/transfer. Branches are locked on any deposit/withdrawal/or inter-branch transfer (aka anytime the branch balance will change). Branches are not locked for intra-branch transfers (when the branch balance doesn't change) but the accounts are. 
--insure that intra-branch transfers don't attempt to mess with branch balance
--bank balance adds each branch's balance. So either lock bank for inter-branch transfers or condition var? or lock each branch in bank balance so that they can be read without change? (lock in same order!)      
+My system enables workers to process commands for different branches at the same time. This is because I lock the branch lock only if I am doing something that will affect the branch balance (aka. deposit/withdraw or a transfer between branches).  The branch is also not locked if the transfer occurring is within the same branch because, again, it doesn't affect the branch balance. Therefore, two intra-branch operations can occur concurrently (so long as they are accessing different accounts). Both of my bank balance and branch balance functions are serializable because they use the lock all of the branches necessary for the operation before continuing. In the bank balance case this is each branch in the bank. In the branch balance case it is the branch being queried. Interactions with individual accounts can no longer proceed concurrently. Each time an action on a account is called the account(s) involved are locked. Also, balance requests are atomic and, as mentioned above, are serializable but can't occur concurrently. As described above, actions that effect branch balance are atomic and no longer concurrent.        
 
 b.
-Describe your approach to eliminating deadlock possibilities from your system.
-Assume you are told your system needs to support two orders of magnitude more accounts and tellers but the same number of branches. What changes would you recommend to the bank software structure to support the additional concurrency to support address additional workload? Hint: consider what functionality reduction you could make to greatly increase the concurrency.
+One way to decrease the probability of deadlocks on a high-magnitude system would be to disallow transfers between branches. In this case, all transfers would be between accounts of the same branch preventing the need to edit the branch (and hence bank) balance. Therefore, we would not need to lock branches when executing transfers. 
+In my program, the main way I tried to avoid deadlocks was insuring that locks were only initialized once (this was a huge bug for me) as well as insuring that locks were only locked in increasing order by account number. This second condition avoided loops in the locking graph.   
 
 2.
-Assume of the following bank scenario where the account balance and the amounts are 64bit unsigned integers (i.e. unsigned long long with our compilers). Assume you are running on a 64bit machine. The withdrawal function looks like:
-    int Withdrawal(Account *account, unsigned long long amount){
-      if (account->balance < amount) {
-        return ERROR_INSUFFICIENT_FUNDS;
-      }
-      account ->balance -= amount;
-      return ERROR_SUCCESS;
-    }
-
 a.
-Shortly after releasing the multithreaded version of the software, you read in the newspaper that an unemployed banker whose checking account was just about out of money discovers that he is now the world's richest person. Describe the race condition that could cause this to happen. Provide an explicit timing flow that describes the interleaving necessary for the race condition to appear.
+During the check if (account->balance < amount) the man has enough money in his account for the withdrawal of amount say $100,000. Then a second thread at that moment removes all $100,000 from his account. Now his account has $0 but this original thread still hasn't executed the account->balance -= amount. When this thread does so, his account balance will circle around (because it is unsigned) to the highest integer value of it's type. So the man is very rich!   
 
 b.
-Would there be any difference in the answer to this question if the code was running on a 32bit machine?
+Yes, the wraparound would result in a smaller number but the man would still be rich!
 
 4.
 I developed on corn.

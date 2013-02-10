@@ -66,7 +66,7 @@ Transaction_DoAction(Bank *bank, Action *actionPtr, int workerNum,
       }
       break;
     case ACTION_BRANCH_BALANCE:
-      err = Branch_Balance(bank,actionPtr->u.branchArg.branchID, &balance);
+      err = Branch_Balance(bank,actionPtr->u.branchArg.branchID, &balance, 1);
       DPRINTF('b', ("Branch %"PRIu64" balance is %"PRId64"\n",
                     actionPtr->u.branchArg.branchID, balance));
       break;

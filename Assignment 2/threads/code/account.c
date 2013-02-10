@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <pthread.h>
 
 #include "teller.h"
 #include "account.h"
@@ -20,7 +21,7 @@ Account_Init(Bank *bank, Account *account, int id, int branch,
 
   account->accountNumber = Account_MakeAccountNum(branch, id);
   account->balance = initialAmount;
-
+  pthread_mutex_init(&(account->accountLock), NULL);
 }
 
 /*

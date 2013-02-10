@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <inttypes.h>
+#include <pthread.h>
 
 #include "teller.h"
 #include "error.h"
@@ -41,6 +42,7 @@ Branch_Init(Bank *bank, int numBranches, int numAccounts,
       Account_Init(bank, &branch->accounts[a], a, i, initialAmount);
       branch->balance += branch->accounts[a].balance;
     }
+	pthread_mutex_init(&(branch->branchLock), NULL);
   }
 
   return 0;
@@ -67,7 +69,7 @@ Branch_UpdateBalance(Bank *bank, BranchID branchID, AccountAmount change)
  * get the balance of the branch
  */
 int
-Branch_Balance(Bank *bank, BranchID branchID, AccountAmount *balance)
+Branch_Balance(Bank *bank, BranchID branchID, AccountAmount *balance, int directCall)
 {
 
 	assert(bank->branches);
@@ -77,9 +79,10 @@ Branch_Balance(Bank *bank, BranchID branchID, AccountAmount *balance)
 	}
 
 	Branch *branch = &(bank->branches[branchID]);
-	// Initialize and lock branch
-	pthread_mutex_init(&(branch->branchLock), NULL);
-	pthread_mutex_lock(&(branch->branchLock));
+	
+	if(directCall){
+		pthread_mutex_lock(&(branch->branchLock));
+	}
 
 	*balance = bank->branches[branchID].balance;  Y;
 	/* It should be the case that the balance of a branch matches the sum 
@@ -88,7 +91,9 @@ Branch_Balance(Bank *bank, BranchID branchID, AccountAmount *balance)
 	 */
 	/* assert(Branch_Validate(bank, branchID) == 0);  */
 	
-	pthread_mutex_unlock(&(branch->branchLock));
+	if(directCall){
+		pthread_mutex_unlock(&(branch->branchLock));
+	}
 	
 	return 0;
 }

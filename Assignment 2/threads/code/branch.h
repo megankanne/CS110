@@ -15,7 +15,7 @@ typedef struct Branch {
 } Branch;
 
 
-int Branch_Balance(struct Bank *bank, BranchID branchID, AccountAmount *balance);
+int Branch_Balance(struct Bank *bank, BranchID branchID, AccountAmount *balance, int directCall);
 int Branch_UpdateBalance(struct Bank *bank, BranchID branchID,
                          AccountAmount change);
 

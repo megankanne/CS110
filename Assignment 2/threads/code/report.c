@@ -20,15 +20,28 @@
 typedef struct Report {
   int numReports;          // Number of complete reports filled in
   struct {                 // A report consist of:
-    AccountAmount balance; //       The overall bank balance at the report time
+    AccountAmount balance; //       Protected by $. The overall bank balance at the report time. 
     int hasOverflowed;     //       Overflow state - 0 if transfer log hasn't overflowed, 1 otherwise
     int numLogEntries;     //       The number of entries in the log
+	pthread_mutex_t balanceLock;	// Lock $
+	pthread_cond_t balanceCond;		// Condition var #
+	int workersDone;				// Number of who've called DoReport
     struct TransferLog {               // The transfer log contains the accountNum and transfer size
-      AccountNumber accountNum;
-      AccountAmount transferSize;
+      AccountNumber accountNum;		
+      AccountAmount transferSize;	
     } transferLog[MAX_LOG_ENTRIES];
+	struct ThreadLogs {
+		int numLogsforThread;
+		struct TransferLog logs[MAX_LOG_ENTRIES];
+	};
+	struct ThreadLogs *threadLogs;
   } dailyData[MAX_NUM_REPORTS];
 } Report;
+
+// typedef struct TransferLog {               // The transfer log contains the accountNum and transfer size
+//   AccountNumber accountNum;		
+//   AccountAmount transferSize;	
+// } TransferLog;
 
 static AccountAmount reportingAmount;   // Reporting threshold amount
 static int numWorkers;                  // Number of worker threads in the system
@@ -39,25 +52,36 @@ static int numWorkers;                  // Number of worker threads in the syste
 int
 Report_Init(Bank *bank, AccountAmount reportAmount, int maxNumWorkers)
 {
-  // Allocate and fill in the Report structure of the bank.
+ 	// Allocate and fill in the Report structure of the bank.
 
-  bank->report = (Report *) malloc(sizeof(Report));
-  if (bank->report == NULL) {
-    return -1;
-  }
+	bank->report = (Report *) malloc(sizeof(Report));
+	if (bank->report == NULL) {
+	  return -1;
+	}
 
-  bank->report->numReports = 0;
+	bank->report->numReports = 0;
 
-  for (int r = 0; r < MAX_NUM_REPORTS; r++) {
-    bank->report->dailyData[r].hasOverflowed = 0;
-    bank->report->dailyData[r].numLogEntries = 0;
-  }
+	for (int r = 0; r < MAX_NUM_REPORTS; r++) {
+		bank->report->dailyData[r].hasOverflowed = 0;
+		bank->report->dailyData[r].numLogEntries = 0;
+		bank->report->dailyData[r].workersDone = 0;
+		bank->report->dailyData[r].threadLogs = (struct ThreadLogs *) malloc(sizeof(struct ThreadLogs) * maxNumWorkers);
+		for(int i = 0; i < maxNumWorkers; i++){
+		  bank->report->dailyData[r].threadLogs[i].numLogsforThread = 0;
+		}
+		//Initialize mutex and condition vars
+		pthread_cond_init(&(bank->report->dailyData[r].balanceCond), NULL);
+		pthread_mutex_init(&(bank->report->dailyData[r].balanceLock), NULL);
+	}
 
-  // Save the reporting amount and number of workers for this module to use.
-  reportingAmount = reportAmount;
-  numWorkers = maxNumWorkers;
+	// Save the reporting amount and number of workers for this module to use.
+	reportingAmount = reportAmount;
+	numWorkers = maxNumWorkers;
+		
 
-  return 0;
+	printf("workers:%d\n", maxNumWorkers);
+
+	return 0;
 }
 
 
@@ -71,58 +95,106 @@ int
 Report_Transfer(Bank *bank, int workerNum, AccountNumber accountNum,
                 AccountAmount amount)
 {
-  // Compute the absolute amount of the transfer; withdrawals come in as negative numbers.
-  AccountAmount amountAbs = (amount < 0) ? -amount : amount;   Y;
-  if (amountAbs < reportingAmount) {
-    return 0;  // Too small to report.
-  }
+	// Compute the absolute amount of the transfer; withdrawals come in as negative numbers.
+	AccountAmount amountAbs = (amount < 0) ? -amount : amount;   Y;
+	if (amountAbs < reportingAmount) {
+	  return 0;  // Too small to report.
+	}
 
-  Report *rpt = bank->report;
-  int r  = rpt->numReports; Y;
+	Report *rpt = bank->report;
+	int r  = rpt->numReports; Y;
 
-  if (r >= MAX_NUM_REPORTS) {
-      // We've run out of report storage for the bank
-      return 0;
-  }
+	if (r >= MAX_NUM_REPORTS) {
+	    // We've run out of report storage for the bank
+	    return 0;
+	}
 
-  if (rpt->dailyData[r].numLogEntries >= MAX_LOG_ENTRIES) {
-    // Current report is full, mark it as overflowed and return.
-    rpt->dailyData[r].hasOverflowed = 1;
-    return 0;
-  }
-  // Add the record to the end of the log of records.
-  int ent = rpt->dailyData[r].numLogEntries; Y;
-  rpt->dailyData[r].transferLog[ent].accountNum = accountNum; Y;
-  rpt->dailyData[r].transferLog[ent].transferSize = amount;   Y;
-  rpt->dailyData[r].numLogEntries = ent + 1; Y;
+	if (rpt->dailyData[r].numLogEntries >= MAX_LOG_ENTRIES) {
+	  // Current report is full, mark it as overflowed and return.
+	  rpt->dailyData[r].hasOverflowed = 1;
+	  return 0;
+	}
+	//add   
+	int ent = rpt->dailyData[r].threadLogs[workerNum].numLogsforThread; Y;
+	rpt->dailyData[r].threadLogs[workerNum].logs[ent].accountNum = accountNum; Y;
+	rpt->dailyData[r].threadLogs[workerNum].logs[ent].transferSize = amount;   Y;
+	rpt->dailyData[r].threadLogs[workerNum].numLogsforThread = ent + 1; Y;
+	rpt->dailyData[r].numLogEntries++; Y;
+	
+	
+	//int ent = rpt->dailyData[r].numLogEntries; Y;
+	// 	rpt->dailyData[r].transferLog[ent].accountNum = accountNum; Y;
+	// 	rpt->dailyData[r].transferLog[ent].transferSize = amount;   Y;
 
-  return 0;
+	return 0;
 }
 
 /*
- * Perform the nightly report. Is called by every worker for each report period. workerNum is
+ * Perform the nightly report. Is called by evey worker for each report period. workerNum is
  * the worker making the call.  Returns -1 on error, 0 otherwise.
  */
 int
 Report_DoReport(Bank *bank, int workerNum)
 {
-  Report *rpt = bank->report;
+	Report *rpt = bank->report;
 
-  assert(rpt); Y;
+	assert(rpt); Y;
 
-  if (rpt->numReports >= MAX_NUM_REPORTS) {
-      // We've run out of report storage for the bank
-      return -1;
-  }
+	if (rpt->numReports >= MAX_NUM_REPORTS) {
+	    // We've run out of report storage for the bank
+	    return -1;
+	}
+	
 
-  /*
-   * Store the overall bank balance for the report.
-   */
-  int err = Bank_Balance(bank, &rpt->dailyData[rpt->numReports].balance); Y;
-  int oldNumReports = rpt->numReports; Y;
-  rpt->numReports = oldNumReports + 1; Y;
-
-  return err;
+	//Acquire balanceLock - necessary?
+	pthread_mutex_lock(&(rpt->dailyData[rpt->numReports].balanceLock));	
+		
+	//Each of the workers waits while the others arrive
+	rpt->dailyData[rpt->numReports].workersDone++;
+	int oldNumReports = rpt->numReports; Y;
+	
+	printf("worker reporting:%d %d\n", rpt->dailyData[rpt->numReports].workersDone, workerNum);
+	
+	//if last worker
+	if(rpt->dailyData[rpt->numReports].workersDone == numWorkers){
+	
+		//Copy the threads' data into the transferLog
+		int index = 0;
+		for(int i = 0; i < numWorkers; i++){
+			for(int j = 0; j < rpt->dailyData[rpt->numReports].threadLogs[i].numLogsforThread; j++){
+				rpt->dailyData[rpt->numReports].transferLog[index] = rpt->dailyData[rpt->numReports].threadLogs[i].logs[j];
+				index++;
+			}	
+		}
+		printf("logs: %d index: %d\n", rpt->dailyData[rpt->numReports].numLogEntries, index);
+			/*
+			 * Store the overall bank balance for the report.
+			 */
+		int err = Bank_Balance(bank, &rpt->dailyData[rpt->numReports].balance); Y;
+		rpt->numReports = oldNumReports + 1; Y;
+		
+		//signal other threads
+		pthread_cond_broadcast(&(rpt->dailyData[oldNumReports].balanceCond));
+		
+		printf("thread %d reported\n", workerNum);
+	
+		// Unlock mutex
+		pthread_mutex_unlock(&(rpt->dailyData[oldNumReports].balanceLock));
+		
+		return err;
+	}else{
+		while(rpt->dailyData[oldNumReports].workersDone != numWorkers){
+			printf("workersDone %d numWorkers %d\n", rpt->dailyData[oldNumReports].workersDone, numWorkers);
+			pthread_cond_wait(&(rpt->dailyData[rpt->numReports].balanceCond), &(rpt->dailyData[rpt->numReports].balanceLock));
+			printf("condition signal recieved: %d continuing\n", workerNum);
+			//printf("workersDone: %d \n", rpt->dailyData[oldNumReports].workersDone);
+			//pthread_mutex_unlock(&(rpt->dailyData[oldNumReports].balanceLock));
+			//return 0;
+		}
+		printf("thread continuing %d\n", workerNum);
+		pthread_mutex_unlock(&(rpt->dailyData[oldNumReports].balanceLock));
+		return 0;
+	}
 }
 
 
