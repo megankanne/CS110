@@ -7,9 +7,8 @@
 #include "account.h"
 #include "error.h"
 #include "debug.h"
-
-#include "branch.h"
 #include "report.h"
+#include "branch.h"
 
 /*
  * initialize the account based on the passed-in information.

@@ -5,7 +5,6 @@
 #include <inttypes.h>
 
 #include "teller.h"
-#include "account.h"
 #include "error.h"
 #include "debug.h"
 
@@ -53,14 +52,15 @@ Branch_Init(Bank *bank, int numBranches, int numAccounts,
 int
 Branch_UpdateBalance(Bank *bank, BranchID branchID, AccountAmount change)
 {
-  assert(bank->branches);  Y;
-  if (branchID >= bank->numberBranches) {
-    return -1;
-  }
-  AccountAmount oldBalance = bank->branches[branchID].balance; Y;
-  bank->branches[branchID].balance = oldBalance + change; Y;
+	assert(bank->branches);  Y;
+	if (branchID >= bank->numberBranches) {
+	  return -1;
+	}
 
-  return 0;
+	AccountAmount oldBalance = bank->branches[branchID].balance; Y;
+	bank->branches[branchID].balance = oldBalance + change; Y;
+
+	return 0;
 }
 
 /*
@@ -70,19 +70,27 @@ int
 Branch_Balance(Bank *bank, BranchID branchID, AccountAmount *balance)
 {
 
-  assert(bank->branches);
+	assert(bank->branches);
 
-  if (branchID >= bank->numberBranches) {
-    return -1;
-  }
+	if (branchID >= bank->numberBranches) {
+		return -1;
+	}
 
-  *balance = bank->branches[branchID].balance;  Y;
-  /* It should be the case that the balance of a branch matches the sum 
-   * of all the accounts in the branch.  The following routine validates 
-   * this assumption but is far too expense to run in normal operation. 
-   */
-  /* assert(Branch_Validate(bank, branchID) == 0);  */
-  return 0;
+	Branch *branch = &(bank->branches[branchID]);
+	// Initialize and lock branch
+	pthread_mutex_init(&(branch->branchLock), NULL);
+	pthread_mutex_lock(&(branch->branchLock));
+
+	*balance = bank->branches[branchID].balance;  Y;
+	/* It should be the case that the balance of a branch matches the sum 
+	 * of all the accounts in the branch.  The following routine validates 
+	 * this assumption but is far too expense to run in normal operation. 
+	 */
+	/* assert(Branch_Validate(bank, branchID) == 0);  */
+	
+	pthread_mutex_unlock(&(branch->branchLock));
+	
+	return 0;
 }
 
 /*

@@ -11,7 +11,7 @@ DEPS = -MMD -MF $(@:.o=.d)
 WARNINGS = -pedantic -Wall -W -Wcast-qual -Wwrite-strings -Wextra -Wno-unused
 
 # We need to use -std=gnu99 rather than -std=c99 because rand_r is not ANSI C.
-CFLAGS += -fstack-protector -g -std=gnu99 -I$(INC_PATH) $(WARNINGS) $(DEPS)
+CFLAGS += -fstack-protector -g -O -std=gnu99 -I$(INC_PATH) $(WARNINGS) $(DEPS)
 
 LIB_OBJ = $(patsubst %.c,%.o,$(patsubst %.S,%.o,$(LIB_SRC)))
 LIB_DEP = $(patsubst %.o,%.d,$(LIB_OBJ))

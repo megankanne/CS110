@@ -11,6 +11,12 @@
 #include "debug.h"
 #include "branch.h"
 
+BranchID GetBranchID(AccountNumber accountNum)
+{
+  Y;
+  return (BranchID) (accountNum >> 32);
+}
+
 /*
  * Deposit money into an account
  * We lock the account because it's amount is changing
@@ -30,25 +36,25 @@ Teller_DoDeposit(Bank *bank, AccountNumber accountNum, AccountAmount amount)
 	  return ERROR_ACCOUNT_NOT_FOUND;
 	}
 
-	// Initialize account lock
-	//here
-	// Lock account
-	pthread_mutex_init(&(account->accountLock), NULL);
+	/// Initialize and lock account
+	int val = pthread_mutex_init(&(account->accountLock), NULL);
+	//printf("%d", val);
 	pthread_mutex_lock(&(account->accountLock));
-	// Get the account's branch
-	uint64_t branchID = AccountNum_GetBranchID(account->accountNumber);
-	Branch branch = bank->branches[branchID];
-	// Initialize branch lock
-	pthread_mutex_init(&(branch.branchLock), NULL);
-	// Lock the branch
-	pthread_mutex_lock(&(branch.branchLock));
-	
+
+	// Find the branch the account is contained in
+	uint64_t branchID = GetBranchID(account->accountNumber);
+	//printf("%u\n", branchID);
+	Branch *branch = &(bank->branches[branchID]);
+
+	// Initialize and lock branch
+	pthread_mutex_init(&(branch->branchLock), NULL);
+	pthread_mutex_lock(&(branch->branchLock));
+
 	Account_Adjust(bank, account, amount, 1);
 
-	// Unlock account
+	// Unlock branch and account
+	pthread_mutex_unlock(&(branch->branchLock));
 	pthread_mutex_unlock(&(account->accountLock));
-	// Unlock branch
-	pthread_mutex_unlock(&(branch.branchLock));
 	
 	return ERROR_SUCCESS;
 }
@@ -83,19 +89,19 @@ Teller_DoWithdraw(Bank *bank, AccountNumber accountNum, AccountAmount amount)
 	}
 
 	// Get the account's branch
-	uint64_t branchID = AccountNum_GetBranchID(account->accountNumber);
-	Branch branch = bank->branches[branchID];
+	uint64_t branchID = GetBranchID(account->accountNumber);
+	Branch *branch = &(bank->branches[branchID]);
 	// Initialize branch lock
-	pthread_mutex_init(&(branch.branchLock), NULL);
+	pthread_mutex_init(&(branch->branchLock), NULL);
 	// Lock the branch
-	pthread_mutex_lock(&(branch.branchLock));
+	pthread_mutex_lock(&(branch->branchLock));
 	
 	Account_Adjust(bank, account, -amount, 1);
 
+	// Unlock branch
+	pthread_mutex_unlock(&(branch->branchLock));
 	// Unlock account
 	pthread_mutex_unlock(&(account->accountLock));
-	// Unlock branch
-	pthread_mutex_unlock(&(branch.branchLock));
 	
 	return ERROR_SUCCESS;
 }
@@ -111,88 +117,81 @@ Teller_DoTransfer(Bank *bank, AccountNumber srcAccountNum,
 	assert(amount >= 0);
 
 	DPRINTF('t', ("Teller_DoTransfer(src 0x%"PRIx64", dst 0x%"PRIx64
-	              ", amount %"PRId64")\n",
-	              srcAccountNum, dstAccountNum, amount));
+		          ", amount %"PRId64")\n",
+		          srcAccountNum, dstAccountNum, amount));
 
 	Account *srcAccount = Account_LookupByNumber(bank, srcAccountNum);
 	if (srcAccount == NULL) {
-	  return ERROR_ACCOUNT_NOT_FOUND;
+	 return ERROR_ACCOUNT_NOT_FOUND;
 	}
 
 	Account *dstAccount = Account_LookupByNumber(bank, dstAccountNum);
 	if (dstAccount == NULL) {
-	  return ERROR_ACCOUNT_NOT_FOUND;
+	 return ERROR_ACCOUNT_NOT_FOUND;
 	}
-		
-	// Initialize src account lock
-	pthread_mutex_init(&(srcAccount->accountLock), NULL);
-	
-	// Lock src account 
-	pthread_mutex_lock(&(srcAccount->accountLock));
-	if (amount > Account_Balance(srcAccount)) {
-		// Unlock src account
-		pthread_mutex_unlock(&(srcAccount->accountLock));
-		return ERROR_INSUFFICIENT_FUNDS;
-	}
-	
-	// We don't want to lock the same account twice so check if same and only lock
-	// dst if not the same
-	if(srcAccountNum != dstAccountNum){
-		// here
-		if (dstAccount == NULL) {
-			printf("no account?");
-		}
-		// Initialize dst account lock
-		pthread_mutex_init(&(dstAccount->accountLock), NULL);
-		// Lock dst account 
-		pthread_mutex_lock(&(dstAccount->accountLock));
-	}
-	
-	//correct order for bank balance?
 
 	/*
-	 * If we are doing a transfer within the branch, we tell the Account module to
-	 * not bother updating the branch balance since the net change for the
-	 * branch is 0.
-	 */
+	* If we are doing a transfer within the branch, we tell the Account module to
+	* not bother updating the branch balance since the net change for the
+	* branch is 0.
+	*/
 	int updateBranch = !Account_IsSameBranch(srcAccountNum, dstAccountNum);
-	
-	Branch srcBranch, dstBranch;
-	
-	// Check that the dst and src branches are not the same
-	// Lock both branches iff branches are different
-	if(updateBranch){
-		// Get the src account's branch
-		uint64_t srcBranchID = AccountNum_GetBranchID(srcAccount->accountNumber);
-		srcBranch = bank->branches[srcBranchID];
-		// Initialize src branch lock
-		pthread_mutex_init(&(srcBranch.branchLock), NULL);
-		// Lock the src branch
-		pthread_mutex_lock(&(srcBranch.branchLock));
-		
-		// Get the dst account's branch
-		uint64_t dstBranchID = AccountNum_GetBranchID(dstAccount->accountNumber);
-		dstBranch = bank->branches[dstBranchID];
-		// Initialize dst branch lock
-		pthread_mutex_init(&(dstBranch.branchLock), NULL);
-		// Lock the dst branch
-		pthread_mutex_lock(&(dstBranch.branchLock));
+
+	// Initialize and lock both accounts
+	pthread_mutex_init(&(srcAccount->accountLock), NULL);
+	pthread_mutex_init(&(dstAccount->accountLock), NULL);
+	//printf("lock: %x", &(srcAccount->accountLock));
+	pthread_mutex_lock(&(srcAccount->accountLock));
+	if(srcAccountNum != dstAccountNum){
+		pthread_mutex_lock(&(dstAccount->accountLock));
+	}else{
+		//printf("same account\n");
 	}
 	
+	if (amount > Account_Balance(srcAccount)) {
+		pthread_mutex_unlock(&(srcAccount->accountLock));
+	 	return ERROR_INSUFFICIENT_FUNDS;
+	}
+
+	Branch *srcBranch, *dstBranch;
+
+	if (updateBranch) {
+
+		// Find the branches the accounts are contained in
+		uint64_t srcBranchID = GetBranchID(srcAccount->accountNumber);
+		uint64_t dstBranchID = GetBranchID(dstAccount->accountNumber);
+		
+		//correct order so branch with lower ID always locked first
+		if(dstBranchID < srcBranchID){
+			uint64_t temp;
+			temp = srcBranchID;
+			srcBranchID = dstBranchID;
+			dstBranchID = temp;
+		}
+
+		srcBranch = &(bank->branches[srcBranchID]);
+		dstBranch = &(bank->branches[dstBranchID]);
+		
+		// Initialize and lock both branches
+		int val = pthread_mutex_init(&(srcBranch->branchLock), NULL);
+		pthread_mutex_lock(&(srcBranch->branchLock));
+		if(val != 0) {printf("%d", val);}
+		pthread_mutex_init(&(dstBranch->branchLock), NULL);
+		pthread_mutex_lock(&(dstBranch->branchLock));
+	}
+
 	Account_Adjust(bank, srcAccount, -amount, updateBranch);
 	Account_Adjust(bank, dstAccount, amount, updateBranch);
-	
-	// Unlock src account
-	pthread_mutex_unlock(&(srcAccount->accountLock));
-	// Unlock dst account
-	pthread_mutex_unlock(&(dstAccount->accountLock));
 
-	if(updateBranch){
-		// Unlock src branch
-		pthread_mutex_unlock(&(srcBranch.branchLock));
-		// Unlock dst branch
-		pthread_mutex_unlock(&(dstBranch.branchLock));
+	if (updateBranch) {
+		pthread_mutex_unlock(&(srcBranch->branchLock));
+		pthread_mutex_unlock(&(dstBranch->branchLock));
 	}
 	
+	pthread_mutex_unlock(&(srcAccount->accountLock));
+	if(srcAccountNum != dstAccountNum){
+		pthread_mutex_unlock(&(dstAccount->accountLock));
+	}
+
 	return ERROR_SUCCESS;
 }

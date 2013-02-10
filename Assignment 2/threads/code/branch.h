@@ -2,7 +2,7 @@
 #define _BRANCH_H
 
 #include <stdint.h>
-
+#include "account.h"
 
 typedef uint64_t BranchID;
 
