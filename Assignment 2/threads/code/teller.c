@@ -36,18 +36,14 @@ Teller_DoDeposit(Bank *bank, AccountNumber accountNum, AccountAmount amount)
 	  return ERROR_ACCOUNT_NOT_FOUND;
 	}
 
-	/// Initialize and lock account
-	//int val = pthread_mutex_init(&(account->accountLock), NULL);
-	//printf("%d", val);
+	/// Lock account
 	pthread_mutex_lock(&(account->accountLock));
 
 	// Find the branch the account is contained in
 	uint64_t branchID = GetBranchID(account->accountNumber);
-	//printf("%u\n", branchID);
 	Branch *branch = &(bank->branches[branchID]);
 
-	// Initialize and lock branch
-	//pthread_mutex_init(&(branch->branchLock), NULL);
+	// Lock branch
 	pthread_mutex_lock(&(branch->branchLock));
 
 	Account_Adjust(bank, account, amount, 1);
@@ -76,9 +72,6 @@ Teller_DoWithdraw(Bank *bank, AccountNumber accountNum, AccountAmount amount)
 	  return ERROR_ACCOUNT_NOT_FOUND;
 	}
 	
-	// Initialize account lock
-	//pthread_mutex_init(&(account->accountLock), NULL);
-	// here
 	// Lock account 
 	pthread_mutex_lock(&(account->accountLock));
 
@@ -91,8 +84,6 @@ Teller_DoWithdraw(Bank *bank, AccountNumber accountNum, AccountAmount amount)
 	// Get the account's branch
 	uint64_t branchID = GetBranchID(account->accountNumber);
 	Branch *branch = &(bank->branches[branchID]);
-	// Initialize branch lock
-	//pthread_mutex_init(&(branch->branchLock), NULL);
 	// Lock the branch
 	pthread_mutex_lock(&(branch->branchLock));
 	
@@ -138,10 +129,6 @@ Teller_DoTransfer(Bank *bank, AccountNumber srcAccountNum,
 	*/
 	int updateBranch = !Account_IsSameBranch(srcAccountNum, dstAccountNum);
 
-	// Initialize and lock both accounts
-	//pthread_mutex_init(&(srcAccount->accountLock), NULL);
-	//pthread_mutex_init(&(dstAccount->accountLock), NULL);
-	//printf("lock: %x", &(srcAccount->accountLock));
 	// Correct order so account with lower ID always locked first
 	if(dstAccountNum < srcAccountNum){
 		pthread_mutex_lock(&(dstAccount->accountLock));
@@ -177,11 +164,8 @@ Teller_DoTransfer(Bank *bank, AccountNumber srcAccountNum,
 		srcBranch = &(bank->branches[srcBranchID]);
 		dstBranch = &(bank->branches[dstBranchID]);
 		
-		// Initialize and lock both branches
-		//int val = pthread_mutex_init(&(srcBranch->branchLock), NULL);
+		
 		pthread_mutex_lock(&(srcBranch->branchLock));
-		//if(val != 0) {printf("%d", val);}
-		//pthread_mutex_init(&(dstBranch->branchLock), NULL);
 		pthread_mutex_lock(&(dstBranch->branchLock));
 	}
 

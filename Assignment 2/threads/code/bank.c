@@ -44,7 +44,6 @@ Bank_Balance(Bank *bank, AccountAmount *balance)
 	AccountAmount bankTotal = 0;
 	for (unsigned int branchL = 0; branchL < bank->numberBranches; branchL++) {
   		Branch *branch = &(bank->branches[branchL]);
-		//pthread_mutex_init(&(branch->branchLock), NULL);
 		pthread_mutex_lock(&(branch->branchLock));
 	}
 	for (unsigned int branchR = 0; branchR < bank->numberBranches; branchR++) {
