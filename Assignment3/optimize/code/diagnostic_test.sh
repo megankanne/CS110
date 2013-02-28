@@ -5,7 +5,7 @@
 # disk images and making sure the program generate the correct output.
 #
 
-TDIR=/usr/class/cs110/assn3/testdisks
+TDIR=/Users/megankanne/Documents/Masters/CS110/Git/Assignment3/testdisks
 
 
 TMP_FILE=`mktemp "/tmp/tp110-XXXXXX"`

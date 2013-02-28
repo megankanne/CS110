@@ -185,7 +185,7 @@ main(int argc, char *argv[])
         break;
       case 's':
         serverAckFd = atoi(optarg);
-	diskLatency = 0;  /* Default for assignment 3 is zero-latency */
+		diskLatency = 0;  /* Default for assignment 3 is zero-latency */
         break;
       case 'd': {
         char *c = optarg;
