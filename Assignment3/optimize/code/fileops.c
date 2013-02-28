@@ -41,6 +41,8 @@ unsigned char buf[DISKIMG_SECTOR_SIZE]; //Buffer for the sector being read.
 int lblockNum;
 int linum;
 int lbytes;
+int lfd;
+int lsize;
 
 /*
  * Initialize the fileops module for the specified disk.
@@ -63,6 +65,8 @@ Fileops_init(char *diskpath)
 	linum = ROOT_INUMBER - 1;
 	lbytes = 0;
 	lblockNum = 0;
+	lfd = -1;
+	lsize = 0;
 	return unixfs;
 }
 
@@ -110,21 +114,29 @@ Fileops_getchar(int fd)
 	if (openFileTable[fd].pathname == NULL)
 	  return -1;  // fd not opened.
 
-	inumber = pathname_lookup(unixfs, openFileTable[fd].pathname);
-	if (inumber < 0) {
-	  return inumber; // Can't find file
-	}
+	// Store the last fd so that you can get the last pathname in constant time
+	// without having to malloc to store the string or write to a buffer of (possibly)
+	// to small a size
+	
+	// If we are reading from the same file 
+	if(fd != lfd){
+		inumber = pathname_lookup(unixfs, openFileTable[fd].pathname);
+		if (inumber < 0) {
+		  return inumber; // Can't find file
+		}
 
-	err = inode_iget(unixfs, inumber,&in);
-	if (err < 0) {
-	  return err;
+		err = inode_iget(unixfs, inumber,&in);
+		if (err < 0) {
+		  return err;
+		}
+		if (!(in.i_mode & IALLOC)) {
+		  return -1;
+		}
+		size = inode_getsize(&in);
+	} else {
+		size = lsize;
 	}
-	if (!(in.i_mode & IALLOC)) {
-	  return -1;
-	}
-
-	size = inode_getsize(&in);
-
+	
 	if (openFileTable[fd].cursor >= size) return -1; // Finished with file
 
 	blockNo = openFileTable[fd].cursor / DISKIMG_SECTOR_SIZE;
@@ -141,6 +153,11 @@ Fileops_getchar(int fd)
 	if (bytesMoved < 0) {
 	  return -1;
 	}
+	if(bytesMoved <= blockOffset){
+			printf("bytesMoved: %i blockOffset: %i\n", bytesMoved, blockOffset);
+			printf("inumber: %i blockNo: %i\n", inumber, blockNo);
+			printf("linum: %i lblockNum: %i\n", linum, lblockNum);
+		}
 	assert(bytesMoved > blockOffset);
 
 
@@ -149,6 +166,9 @@ Fileops_getchar(int fd)
 	/* Cache the inumber and block number used */
 	linum = inumber;
 	lblockNum = blockNo;
+	lbytes = bytesMoved;
+	lfd = fd;
+	lsize = size;
 
 	return (int)(buf[blockOffset]);
 }
