@@ -1,0 +1,6 @@
+[1]
+
+A description of the optimization.
+The analysis you performed and any measurements you made to suggest this optimization will be beneficial.
+Back-of-the-envelope calculations you did to predict how much the optimization should help.
+The measurements you performed that evaluated the effectiveness of the optimization.
