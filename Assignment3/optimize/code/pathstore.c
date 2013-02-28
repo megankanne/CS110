@@ -145,6 +145,7 @@ IsSameFile(Pathstore *store, char *pathname1, char *pathname2)
     numdiffchecksum++;
     return 0;  // Checksum mismatch, not the same file
   }
+
   /* Checksums match, do a content comparison */
   int fd1 = Fileops_open(pathname1);
   if (fd1 < 0) {
@@ -153,7 +154,7 @@ IsSameFile(Pathstore *store, char *pathname1, char *pathname2)
   }
 
   int fd2 = Fileops_open(pathname2);
-  if (fd2 < 0) {
+  if (fd2 < 0) { 
     Fileops_close(fd1);
     fprintf(stderr, "Can't open path %s\n", pathname2);
     return 0;

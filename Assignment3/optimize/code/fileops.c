@@ -36,25 +36,34 @@ static struct {
 
 static struct unixfilesystem *unixfs;
 
+/* Globals that cache the last sector used and its metadata. */
+unsigned char buf[DISKIMG_SECTOR_SIZE]; //Buffer for the sector being read.
+int lblockNum;
+int linum;
+int lbytes;
+
 /*
  * Initialize the fileops module for the specified disk.
  */
 void *
 Fileops_init(char *diskpath)
 {
-  memset(openFileTable, 0, sizeof(openFileTable));
+	memset(openFileTable, 0, sizeof(openFileTable));
 
-  int fd = diskimg_open(diskpath, 1);
-  if (fd < 0) {
-    fprintf(stderr, "Can't open diskimagePath %s\n", diskpath);
-    return NULL;
-  }
-  unixfs = unixfilesystem_init(fd);
-  if (unixfs == NULL) {
-    diskimg_close(fd);
-    return NULL;
-  }
-  return unixfs;
+	int fd = diskimg_open(diskpath, 1);
+	if (fd < 0) {
+	  fprintf(stderr, "Can't open diskimagePath %s\n", diskpath);
+	  return NULL;
+	}
+	unixfs = unixfilesystem_init(fd);
+	if (unixfs == NULL) {
+	  diskimg_close(fd);
+	  return NULL;
+	}
+	linum = ROOT_INUMBER - 1;
+	lbytes = 0;
+	lblockNum = 0;
+	return unixfs;
 }
 
 /*
@@ -90,48 +99,58 @@ Fileops_open(char *pathname)
 int
 Fileops_getchar(int fd)
 {
-  int inumber;
-  struct inode in;
-  unsigned char buf[DISKIMG_SECTOR_SIZE];
-  int bytesMoved;
-  int err, size;
-  int blockNo, blockOffset;
+	int inumber;
+	struct inode in;
+	int bytesMoved;
+	int err, size;
+	int blockNo, blockOffset;
 
-  numgetchars++;
+	numgetchars++;
 
-  if (openFileTable[fd].pathname == NULL)
-    return -1;  // fd not opened.
+	if (openFileTable[fd].pathname == NULL)
+	  return -1;  // fd not opened.
 
-  inumber = pathname_lookup(unixfs, openFileTable[fd].pathname);
-  if (inumber < 0) {
-    return inumber; // Can't find file
-  }
+	inumber = pathname_lookup(unixfs, openFileTable[fd].pathname);
+	if (inumber < 0) {
+	  return inumber; // Can't find file
+	}
 
-  err = inode_iget(unixfs, inumber,&in);
-  if (err < 0) {
-    return err;
-  }
-  if (!(in.i_mode & IALLOC)) {
-    return -1;
-  }
+	err = inode_iget(unixfs, inumber,&in);
+	if (err < 0) {
+	  return err;
+	}
+	if (!(in.i_mode & IALLOC)) {
+	  return -1;
+	}
 
-  size = inode_getsize(&in);
+	size = inode_getsize(&in);
 
-  if (openFileTable[fd].cursor >= size) return -1; // Finished with file
+	if (openFileTable[fd].cursor >= size) return -1; // Finished with file
 
-  blockNo = openFileTable[fd].cursor / DISKIMG_SECTOR_SIZE;
-  blockOffset =  openFileTable[fd].cursor % DISKIMG_SECTOR_SIZE;
+	blockNo = openFileTable[fd].cursor / DISKIMG_SECTOR_SIZE;
+	blockOffset =  openFileTable[fd].cursor % DISKIMG_SECTOR_SIZE;
 
-  bytesMoved = file_getblock(unixfs, inumber,blockNo,buf);
-  if (bytesMoved < 0) {
-    return -1;
-  }
-  assert(bytesMoved > blockOffset);
+	// If a new inumber and blockNo, read new block into cache
+	// else used the previously cached block
+	if(inumber != linum || blockNo != lblockNum){
+		bytesMoved = file_getblock(unixfs, inumber,blockNo,buf);
+	}else{
+		bytesMoved = lbytes;
+	}
+	
+	if (bytesMoved < 0) {
+	  return -1;
+	}
+	assert(bytesMoved > blockOffset);
 
 
-  openFileTable[fd].cursor += 1;
+	openFileTable[fd].cursor += 1;
+	
+	/* Cache the inumber and block number used */
+	linum = inumber;
+	lblockNum = blockNo;
 
-  return (int)(buf[blockOffset]);
+	return (int)(buf[blockOffset]);
 }
 
 /*
