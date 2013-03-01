@@ -2,8 +2,8 @@
 #define _PATHSTORE_H
 
 typedef struct Pathstore {
-  struct PathstoreElement *elementList;
-  void                    *fshandle;
+  void	*elementList;
+  void  *fshandle;
 } Pathstore;
 
 Pathstore* Pathstore_create(void *fshandle);
