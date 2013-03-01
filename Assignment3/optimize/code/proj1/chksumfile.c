@@ -34,6 +34,7 @@
 int
 chksumfile_byinumber(struct unixfilesystem *fs, int inumber, void *chksum)
 {
+  //printf("chhksumfile_byinumber\n");
   SHA_CTX shactx;
   if (!SHA1_Init(&shactx)) {
     // An error occurred initializing the SHA1 context.

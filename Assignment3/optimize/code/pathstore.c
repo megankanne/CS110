@@ -31,7 +31,7 @@ static uint64_t numdiffchecksum = 0;
 static uint64_t numdups = 0;
 static uint64_t numcompares = 0;
 static uint64_t numstores = 0;
-static uint64_t numbychar = 0;
+//static uint64_t numbychar = 0;
 
 //static int SameFileIsInStore(Pathstore *store, char *pathname);
 //static int IsSameFile(Pathstore *store, char *pathname1, char *pathname2);
@@ -53,6 +53,13 @@ CompareCallback(const void *arg1, const void *arg2)
   return !(chksumfile_compare(e1->chksum, e2->chksum));
 }
 
+static void 
+StoreCleanup(const void *arg1)
+{
+	PathstoreElement *e1 = (PathstoreElement *) arg1;
+	free(e1->pathname);
+}
+
 Pathstore*
 Pathstore_create(void *fshandle)
 {
@@ -66,11 +73,6 @@ Pathstore_create(void *fshandle)
 	//hashTable = (_LHASH*) (store->elementList);
 
 	return store;
-}
-
-void StoreCleanup(const void *arg1){
-	PathstoreElement *e1 = (PathstoreElement *) arg1;
-	free(e1->pathname);
 }
 
 /*
@@ -107,7 +109,8 @@ Pathstore_path(Pathstore *store, char *pathname, int discardDuplicateFiles)
     	fprintf(stderr,"Can't checksum path %s\n", pathname);
 	    return 0;
  	}
-	printf("chksum: %s\n", chksum1);
+	//printf("chksum: %s\n", chksum1);
+	//printf("Pathstore: %s\n", pathname);
 	
 	// see if that checksum is already in the data structure?
 	PathstoreElement key;
@@ -123,7 +126,7 @@ Pathstore_path(Pathstore *store, char *pathname, int discardDuplicateFiles)
 			return NULL;
 		}
 	}
-	printf("adding %s\n", pathname);
+	//printf("adding %s\n", pathname);
 	// otherwise add
 	entry = malloc(sizeof(PathstoreElement));
     if (entry == NULL) {

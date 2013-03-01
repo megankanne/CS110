@@ -261,7 +261,7 @@ BuildDiskIndex(char *diskpath, int discardDups)
     exit(EXIT_FAILURE);
   }
   if (!quietFlag) {
-    printf("Starting index build ....");
+    printf("Starting index build ....\n");
   }
 
   int64_t startTime = Debug_GetTimeInMicrosecs();
