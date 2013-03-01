@@ -31,7 +31,7 @@ static uint64_t numdiffchecksum = 0;
 static uint64_t numdups = 0;
 static uint64_t numcompares = 0;
 static uint64_t numstores = 0;
-//static uint64_t numbychar = 0;
+static int numfilesseen = 0;
 
 //static int SameFileIsInStore(Pathstore *store, char *pathname);
 //static int IsSameFile(Pathstore *store, char *pathname1, char *pathname2);
@@ -54,7 +54,7 @@ CompareCallback(const void *arg1, const void *arg2)
 }
 
 static void 
-StoreCleanup(const void *arg1)
+StoreCleanup(void *arg1)
 {
 	PathstoreElement *e1 = (PathstoreElement *) arg1;
 	free(e1->pathname);
@@ -67,10 +67,7 @@ Pathstore_create(void *fshandle)
 	if (store == NULL)
 	  return NULL;
 
-	//initialize hash table
-	store->elementList = lh_new(HashCallback, CompareCallback);;
 	store->fshandle = fshandle;
-	//hashTable = (_LHASH*) (store->elementList);
 
 	return store;
 }
@@ -90,18 +87,67 @@ Pathstore_destory(Pathstore *store)
 	lh_free(hashtable);
 }
 
+
 /*
  * Store a pathname in the pathname store.
  */
 char*
 Pathstore_path(Pathstore *store, char *pathname, int discardDuplicateFiles)
 {
-	_LHASH *hashtable = (_LHASH*) (store->elementList);
 	char chksum1[CHKSUMFILE_SIZE];
-	
 	struct unixfilesystem *fs = (struct unixfilesystem *) (store->fshandle);
 
 	numstores++;
+	
+	PathstoreElement *entry;
+	
+	/* For 1 file case
+	 * No hash table or checksum 
+	 */
+	if(numfilesseen == 0){
+		numfilesseen++;
+		entry = malloc(sizeof(PathstoreElement));;
+	    entry->pathname = strdup(pathname);
+		if (entry->pathname == NULL) {
+		  	free(entry);
+			printf("memory problem 2\n");
+		  	return NULL;
+		}
+		store->elementList = entry;
+		return entry->pathname;
+	}
+	
+	/* For >1 file
+	 * Use hash table and checksums
+	 */
+	_LHASH *hashtable;
+	
+	// if we are going from 1 file case to 2 files
+	if(numfilesseen == 1){
+		numfilesseen++;
+		//store first entry somewhere
+		PathstoreElement *temp = store->elementList;
+		//calc checksum for file 1 path
+		int err = chksumfile_bypathname(fs, temp->pathname, chksum1);
+		if (err < 0) {
+	    	fprintf(stderr,"Can't checksum path %s\n", pathname);
+		    return 0;
+	 	}
+		memcpy(temp->chksum, chksum1, CHKSUMFILE_SIZE);
+		//initialize hash table
+		store->elementList = lh_new(HashCallback, CompareCallback);
+		printf("hash table created\n");
+		hashtable = (_LHASH*) (store->elementList);
+		//seed hash table with first entry
+		lh_insert(hashtable,(char *) temp);
+	    if (lh_error(hashtable)) {
+	    	free(temp);
+			printf("hash problem\n");
+	    	return NULL;
+	    }
+	}else{
+		hashtable = (_LHASH*) (store->elementList);
+	}
 	
 	// calc checksum of pathname
 	int err = chksumfile_bypathname(fs, pathname, chksum1);
@@ -109,15 +155,13 @@ Pathstore_path(Pathstore *store, char *pathname, int discardDuplicateFiles)
     	fprintf(stderr,"Can't checksum path %s\n", pathname);
 	    return 0;
  	}
-	//printf("chksum: %s\n", chksum1);
+	//printf("numfilesseen: %i\n", numfilesseen);
 	//printf("Pathstore: %s\n", pathname);
 	
 	// see if that checksum is already in the data structure?
 	PathstoreElement key;
 	memcpy(key.chksum, chksum1, CHKSUMFILE_SIZE);
-	
-	PathstoreElement *entry;
-	
+		
 	// if discardDups, see if its in table, if it is, return
 	if (discardDuplicateFiles) {
 		entry = lh_retrieve(hashtable, (char *) &key);
@@ -126,6 +170,7 @@ Pathstore_path(Pathstore *store, char *pathname, int discardDuplicateFiles)
 			return NULL;
 		}
 	}
+	
 	//printf("adding %s\n", pathname);
 	// otherwise add
 	entry = malloc(sizeof(PathstoreElement));
@@ -133,9 +178,7 @@ Pathstore_path(Pathstore *store, char *pathname, int discardDuplicateFiles)
 		printf("memory problem\n");
       	return NULL;
     }
-
 	memcpy(entry->chksum, chksum1, CHKSUMFILE_SIZE);
-	
     entry->pathname = strdup(pathname);
 	if (entry->pathname == NULL) {
 	  	free(entry);
@@ -152,92 +195,7 @@ Pathstore_path(Pathstore *store, char *pathname, int discardDuplicateFiles)
     }
   
 	return entry->pathname;
-
-	// if (discardDuplicateFiles) {
-	// 	  if (SameFileIsInStore(store,pathname)) {
-	// 	    numdups++;
-	// 	    return NULL;
-	// 	  }
-	// 	}
-	// 
-	// 	e = malloc(sizeof(PathstoreElement));
-	// 	if (e == NULL) {
-	// 	  return NULL;
-	// 	}
-	// 
-	// 	e->pathname = strdup(pathname);
-	// 	if (e->pathname == NULL) {
-	// 	  free(e);
-	// 	  return NULL;
-	// 	}
-	// 	e->nextElement = store->elementList;
-	// 	store->elementList = e;
-	// 
-	// 	return e->pathname;
-
 }
-
-// /*
-//  * Is this file the same as any other one in the store
-//  */
-// static int
-// SameFileIsInStore(Pathstore *store, char *pathname)
-// {
-//   PathstoreElement *e = store->elementList;
-// 
-//   while (e) {
-//     if (IsSameFile(store, pathname, e->pathname)) {
-//       return 1;  // In store already
-//     }
-//     e = e->nextElement;
-//   }
-//   return 0; // Not found in store
-// }
-// 
-// /*
-//  * Do the two pathnames refer to a file with the same contents.
-//  */
-// static int
-// IsSameFile(Pathstore *store, char *pathname1, char *pathname2)
-// {
-// 
-//   char chksum1[CHKSUMFILE_SIZE],
-//        chksum2[CHKSUMFILE_SIZE];
-// 
-//   struct unixfilesystem *fs = (struct unixfilesystem *) (store->fshandle);
-// 
-//   numcompares++;
-//   if (strcmp(pathname1, pathname2) == 0) {
-//     return 1; // Same pathname must be same file.
-//   }
-// 
-//   /* Compute the chksumfile of each file to see if they are the same */
-// 
-//   int err = chksumfile_bypathname(fs, pathname1, chksum1);
-//   if (err < 0) {
-//     fprintf(stderr,"Can't checksum path %s\n", pathname1);
-//     return 0;
-//   }
-//   err = chksumfile_bypathname(fs, pathname2, chksum2);
-//   if (err < 0) {
-//     fprintf(stderr,"Can't checksum path %s\n", pathname2);
-//     return 0;
-//   }
-// 
-//   if (chksumfile_compare(chksum1, chksum2) == 0) {
-//     numdiffchecksum++;
-//     return 0;  // Checksum mismatch, not the same file
-//   }
-// 
-//   /* Checksums match, do a content comparison */
-//   int fd1 = Fileops_open(pathname1);
-//   if (fd1 < 0) {
-//     fprintf(stderr, "Can't open path %s\n", pathname1);
-//     return 0;
-//   }
-// 
-//   numsamefiles++;
-// }
 
 void
 Pathstore_dumpstats(FILE *file)

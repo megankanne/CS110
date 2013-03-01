@@ -13,10 +13,11 @@
  * otherwise return the DISKIMG_SECTOR_SIZE. 
  */
 int validBytes(struct inode *inp, int blockNum){
-	int partial = (inode_getsize(inp) % DISKIMG_SECTOR_SIZE == 0) ? 0 : 1;
-	int blocks = (inode_getsize(inp) / DISKIMG_SECTOR_SIZE) + partial;
+	int size = inode_getsize(inp);
+	int partial = (size % DISKIMG_SECTOR_SIZE == 0) ? 0 : 1;
+	int blocks = (size / DISKIMG_SECTOR_SIZE) + partial;
 	if(blockNum == blocks - 1){
-		if(partial) { return (inode_getsize(inp) % DISKIMG_SECTOR_SIZE);}
+		if(partial) { return (size % DISKIMG_SECTOR_SIZE);}
 		return DISKIMG_SECTOR_SIZE;
 	}else{
 		return DISKIMG_SECTOR_SIZE;

@@ -215,7 +215,7 @@ main(int argc, char *argv[])
     return 1;
   }
 
-  char *diskpath = diskpath = argv[optind];
+  char *diskpath = argv[optind]; //huh?
   BuildDiskIndex(diskpath, discardDupFiles);
 
   if (queryWord) {
