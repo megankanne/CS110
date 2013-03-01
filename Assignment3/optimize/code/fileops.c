@@ -135,12 +135,19 @@ Fileops_getchar(int fd)
 		size = inode_getsize(&in);
 	} else {
 		size = lsize;
+		inumber = linum;
 	}
 	
 	if (openFileTable[fd].cursor >= size) return -1; // Finished with file
 
 	blockNo = openFileTable[fd].cursor / DISKIMG_SECTOR_SIZE;
 	blockOffset =  openFileTable[fd].cursor % DISKIMG_SECTOR_SIZE;
+	
+	// printf("fd: %i size: %i\n", fd, size);
+	// 	printf("lfd: %i lsize: %i\n", lfd, lsize);
+	// 	printf("bytesMoved: %i blockOffset: %i\n", bytesMoved, blockOffset);
+	// 			printf("inumber: %i blockNo: %i\n", inumber, blockNo);
+	// 			printf("linum: %i lblockNum: %i\n", linum, lblockNum);
 
 	// If a new inumber and blockNo, read new block into cache
 	// else used the previously cached block
@@ -157,7 +164,7 @@ Fileops_getchar(int fd)
 			printf("bytesMoved: %i blockOffset: %i\n", bytesMoved, blockOffset);
 			printf("inumber: %i blockNo: %i\n", inumber, blockNo);
 			printf("linum: %i lblockNum: %i\n", linum, lblockNum);
-		}
+	}
 	assert(bytesMoved > blockOffset);
 
 
