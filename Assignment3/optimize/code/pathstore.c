@@ -26,6 +26,7 @@ static uint64_t numdiffchecksum = 0;
 static uint64_t numdups = 0;
 static uint64_t numcompares = 0;
 static uint64_t numstores = 0;
+static uint64_t numbychar = 0;
 
 static int SameFileIsInStore(Pathstore *store, char *pathname);
 static int IsSameFile(Pathstore *store, char *pathname1, char *pathname2);
@@ -153,36 +154,39 @@ IsSameFile(Pathstore *store, char *pathname1, char *pathname2)
     return 0;
   }
 
-  int fd2 = Fileops_open(pathname2);
-  if (fd2 < 0) { 
-    Fileops_close(fd1);
-    fprintf(stderr, "Can't open path %s\n", pathname2);
-    return 0;
-  }
-
-  int ch1, ch2;
-
-  do {
-    ch1 = Fileops_getchar(fd1);
-    ch2 = Fileops_getchar(fd2);
-
-    if (ch1 != ch2) {
-      break; // Mismatch - exit loop with ch1 != ch2
-    }
-  } while (ch1 != -1);
-
-  // if files match then ch1 == ch2 == -1
-
-  Fileops_close(fd1);
-  Fileops_close(fd2);
-
-  if (ch1 == ch2) {
-    numsamefiles++;
-  } else {
-    numdifferentfiles++;
-  }
-
-  return ch1 == ch2;
+  numsamefiles++;
+  
+  // int fd2 = Fileops_open(pathname2);
+  //   if (fd2 < 0) { 
+  //     Fileops_close(fd1);
+  //     fprintf(stderr, "Can't open path %s\n", pathname2);
+  //     return 0;
+  //   }
+  // 
+  //   int ch1, ch2;
+  // 
+  //   do {
+  //     ch1 = Fileops_getchar(fd1);
+  //     ch2 = Fileops_getchar(fd2);
+  // 	
+  // 	numbychar++;
+  //     if (ch1 != ch2) {
+  //       break; // Mismatch - exit loop with ch1 != ch2
+  //     }
+  //   } while (ch1 != -1);
+  // 
+  //   // if files match then ch1 == ch2 == -1
+  // 
+  //   Fileops_close(fd1);
+  //   Fileops_close(fd2);
+  // 
+  //   if (ch1 == ch2) {
+  //     numsamefiles++;
+  //   } else {
+  //     numdifferentfiles++;
+  //   }
+  // 
+  //   return ch1 == ch2;
 }
 
 void

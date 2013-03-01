@@ -345,7 +345,7 @@ QueryWord(char *word, Index *ind, FILE *file)
 
   while (loc) {
     if (file)
-      fprintf(file,"Word %s @ %s:%d\n", word, loc->item.pathname, loc->item.offset);
+      //fprintf(file,"Word %s @ %s:%d\n", word, loc->item.pathname, loc->item.offset);
     loc = loc->nextLocation;
   }
 
