@@ -87,6 +87,9 @@ disksim_perform_operation(int fd, int sectorNum, void* buf, bool do_read)
 
   off_t offset = sectorNum * DISKIMG_SECTOR_SIZE;
 
+  //printf("%i sector\n", sectorNum);
+
+
   pthread_mutex_lock(&disk_mutex);
 
   int64_t startTime = 0;

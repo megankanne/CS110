@@ -215,7 +215,7 @@ main(int argc, char *argv[])
     return 1;
   }
 
-  char *diskpath = argv[optind]; //huh?
+  char *diskpath = argv[optind];
   BuildDiskIndex(diskpath, discardDupFiles);
 
   if (queryWord) {
@@ -345,7 +345,7 @@ QueryWord(char *word, Index *ind, FILE *file)
 
   while (loc) {
     if (file)
-      //fprintf(file,"Word %s @ %s:%d\n", word, loc->item.pathname, loc->item.offset);
+      fprintf(file,"Word %s @ %s:%d\n", word, loc->item.pathname, loc->item.offset);
     loc = loc->nextLocation;
   }
 

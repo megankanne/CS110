@@ -10,12 +10,14 @@
 #include <inttypes.h>
 #include <openssl/lhash.h>
 
-#if defined(__APPLE__)
+//#if defined(__APPLE__)
   #define _LHASH LHASH
-#endif
+//#endif
 
 #include "index.h"
 #include "debug.h"
+
+#define MAX_WORD_SIZE 64
 
 static uint64_t numstores = 0;
 static uint64_t numlookups = 0;
@@ -24,7 +26,7 @@ static uint64_t numentriesalloc = 0;
 static _LHASH *hashTable = NULL;  // For stats print only
 
 typedef struct IndexHashEntry {
-  char *keyword;    // The string we care about
+  char keyword[MAX_WORD_SIZE];    // The string we care about
   IndexLocationList *locationList;   // Where it is located
 } IndexHashEntry;
 
@@ -69,9 +71,8 @@ Index_StoreEntry(Index *ind, char *keyword, char *pathname, int offset)
   newItem->item.offset = offset;
   newItem->nextLocation = NULL;
 
-  char *word = strdup(keyword);
   IndexHashEntry key; 
-  key.keyword = word;
+  strcpy(key.keyword, keyword);
 
   IndexHashEntry *entry;
   entry = lh_retrieve(hashtable, (char *) &key);
@@ -79,23 +80,18 @@ Index_StoreEntry(Index *ind, char *keyword, char *pathname, int offset)
   if (entry == NULL) {
     entry = malloc(sizeof(IndexHashEntry));
     if (entry == NULL) {
-      free(word);
       return false;
     }
     numentriesalloc++;
-    entry->keyword = word;
+    strcpy(entry->keyword, keyword);
     entry->locationList = NULL;
 
     lh_insert(hashtable,(char *) entry);
 
     if (lh_error(hashtable)) {
-      free(word);
       free(entry);
       return false;
     }
-  }
-  else {
-    free(word);
   }
 
   newItem->nextLocation =  entry->locationList;
@@ -111,7 +107,7 @@ Index_RetrieveEntry(Index *ind, char *keyword)
   numlookups++;
 
   IndexHashEntry key;
-  key.keyword = keyword;
+  strcpy(key.keyword, keyword);
 
   IndexHashEntry *entry = lh_retrieve(hashtable, (char *) &key);
   return entry ? entry->locationList : (IndexLocationList *) NULL;
