@@ -20,16 +20,28 @@
 #include "cachemem.h"
 #include "proj1/diskimg.h"
 
-
-int cacheMemSizeInKB = 0;
-int sectorsAvail = 0;
-void *cacheMemPtr;
-_LHASH *cachehash;
+typedef struct EntryMetaData{
+	unsigned long sectorNum;
+	int added;	//higher indexes are more recent
+	int used; //higher indexes are more recent
+	int isinode;
+} EntryMetaData;
 
 typedef struct CacheHashEntry {
   unsigned long sectorNum;    // The sector number
   void *sector;   // Where it is located in cache memory
 } CacheHashEntry;
+
+int cacheMemSizeInKB = 0;
+int sectorsAvail = 0;
+void *cacheMemPtr;
+_LHASH *cachehash;
+EntryMetaData *metadata;
+EntryMetaData *position;
+int addedBlks;
+int accessedBlks;
+int sectorsPossible;
+int replaced = 0;
 
 
 /*
@@ -73,9 +85,14 @@ CacheMem_Init(int sizeInKB)
 	  return -1;
 	}
 	sectorsAvail = (sizeInKB * 1024) / DISKIMG_SECTOR_SIZE; //ok b/c always a multiple of 512
+	sectorsPossible = sectorsAvail;
 	cacheMemSizeInKB = sizeInKB;
 	cacheMemPtr = memPtr;
 	cachehash = lh_new(HashCallback, CompareCallback);
+	metadata = calloc(sectorsPossible, sizeof(EntryMetaData));
+	position = metadata;
+	addedBlks = 0;
+	accessedBlks = 0;
 	return 0;
 }
 
@@ -85,6 +102,12 @@ CacheMem_Init(int sizeInKB)
 int 
 totalCacheSize(){
 	return cacheMemSizeInKB;
+}
+
+int LRUcomp(const void * a, const void * b){
+	EntryMetaData *e1 = (EntryMetaData *) a;
+	EntryMetaData *e2 = (EntryMetaData *) b;
+	return e2->used - e1->used;
 }
 
 /*
@@ -122,14 +145,28 @@ putSectorInCache(struct unixfilesystem *fs, int sectorNum){
 	    	return 0;
 	    }
 		
+		//add sector metadata to array
+		position->sectorNum = (unsigned long) sectorNum;
+		position->added = addedBlks;
+		position->used = accessedBlks;
+		position += sizeof(EntryMetaData);
+		
+		addedBlks++;
+		accessedBlks++;
+		
 		//increment cacheMemPtr to next block of open memory
 		cacheMemPtr += DISKIMG_SECTOR_SIZE;	    
 		//decrement sectors available
 		sectorsAvail--;
 		return 1;
+	}else{
+		//replace some sector
+		replaced++;
+		if(replaced % 10 == 0){ printf("replaced:%i", replaced); }
+		//sort the metadata array
+		//qsort(metadata, sectorsPossible, sizeof(EntryMetaData), LRUcomp);
+		//grab associated hash table element
 	}
-	//else
-	//replace some sector
 	return 0;
 }
 

@@ -8,5 +8,4 @@ int inode_indexlookup(struct unixfilesystem *fs, struct inode *inp, int blockNum
 int inode_getsize(struct inode *inp);
 
 
-
 #endif /* _INODE_ */
