@@ -136,7 +136,6 @@ Pathstore_path(Pathstore *store, char *pathname, int discardDuplicateFiles)
 		memcpy(temp->chksum, chksum1, CHKSUMFILE_SIZE);
 		//initialize hash table
 		store->elementList = lh_new(HashCallback, CompareCallback);
-		printf("hash table created\n");
 		hashtable = (_LHASH*) (store->elementList);
 		//seed hash table with first entry
 		lh_insert(hashtable,(char *) temp);

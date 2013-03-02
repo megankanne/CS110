@@ -44,10 +44,7 @@ inode_iget(struct unixfilesystem *fs, int inumber, struct inode *inp)
 	if(!getSectorFromCache(sector, buffer, 0, 0, 1, NULL)){
 		putSectorInCache(fs, sector, 0, 0, 1);
 		//...load that sector into memory
-		if (diskimg_readsector(fs->dfd, sector, buffer) != DISKIMG_SECTOR_SIZE) {
-		    fprintf(stderr, "Error reading block\n");
-		    return -1;
-		}
+		assert(getSectorFromCache(sector, buffer, 0, 0, 1, NULL));
 	}else{
 		//printf("sector %i found in cache!\n", sector);
 		cachehits++;
@@ -90,15 +87,23 @@ inode_indexlookup(struct unixfilesystem *fs, struct inode *inp, int blockNum)
 		//clamp doubly indirect blocks
 		if(indirect_block_ptr > 7){ indirect_block_ptr = 7; }
 		int indirect_block_sector = inp->i_addr[indirect_block_ptr];
+		
+		//if(cachehits % 10 == 0) { printf("indirect_block_sector:%i", indirect_block_sector); }
+		//printf("indirect_block_sector:%i\n", indirect_block_sector);
+		
 		uint16_t indirect_block[NUM_PTRS_PER_SECTOR];
 		//check to see if sector is cached, if not cache it and...
 		if(!getSectorFromCache(indirect_block_sector, indirect_block, 0, 0, 1, NULL)){
+			//printf("fs->dfd %i before cache\n", fs->dfd);
 			putSectorInCache(fs, indirect_block_sector, 0, 0, 1);
+			//printf("fs->dfd %i after cache\n", fs->dfd);
+			assert(getSectorFromCache(indirect_block_sector, indirect_block, 0, 0, 1, NULL));
 			//...load that sector into memory
-			if (diskimg_readsector(fs->dfd, indirect_block_sector, indirect_block) != DISKIMG_SECTOR_SIZE) {
-			    fprintf(stderr, "Error reading indirect block\n");
-			    return -1;
-			}
+			// if (diskimg_readsector(fs->dfd, indirect_block_sector, indirect_block) != DISKIMG_SECTOR_SIZE) {
+			//     fprintf(stderr, "Error reading indirect block at sector %i\n", indirect_block_sector);
+			// 	assert(0);
+			//     return -1;
+			// }
 		}else{
 			//printf("sector %i found in cache!\n", sector);
 			cachehits++;
@@ -114,10 +119,7 @@ inode_indexlookup(struct unixfilesystem *fs, struct inode *inp, int blockNum)
 			if(!getSectorFromCache(indirect_block_sector, sec_indirect_block, 0, 0, 1, NULL)){
 				putSectorInCache(fs, indirect_block_sector, 0, 0, 1);
 				//...load that sector into memory
-				if (diskimg_readsector(fs->dfd, indirect_block_sector, sec_indirect_block) != DISKIMG_SECTOR_SIZE) {
-				    fprintf(stderr, "Error reading indirect block\n");
-				    return -1;
-				}
+				assert(getSectorFromCache(indirect_block_sector, sec_indirect_block, 0, 0, 1, NULL));
 			}else{
 				//printf("sector %i found in cache!\n", sector);
 				cachehits++;

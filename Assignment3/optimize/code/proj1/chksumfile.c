@@ -34,43 +34,44 @@
 int
 chksumfile_byinumber(struct unixfilesystem *fs, int inumber, void *chksum)
 {
-  //printf("chhksumfile_byinumber\n");
-  SHA_CTX shactx;
-  if (!SHA1_Init(&shactx)) {
-    // An error occurred initializing the SHA1 context.
-    return -1;
-  }
+	SHA_CTX shactx;
+	if (!SHA1_Init(&shactx)) {
+	  // An error occurred initializing the SHA1 context.
+	  return -1;
+	}
 
-  struct inode in;
-  int err = inode_iget(fs, inumber, &in);
-  if (err < 0) {
-    return err;
-  }
+	struct inode in;
+	int err = inode_iget(fs, inumber, &in);
+	if (err < 0) {
+	  return err;
+	}
 
-  if (!(in.i_mode & IALLOC)) {
-    // The inode isn't allocated, so we can't hash it.
-    return -1;
-  }
+	if (!(in.i_mode & IALLOC)) {
+	  // The inode isn't allocated, so we can't hash it.
+	  return -1;
+	}
 
-  int size = inode_getsize(&in);
+	int size = inode_getsize(&in);
 
-  for (int offset = 0; offset < size; offset += DISKIMG_SECTOR_SIZE) {
-    char buf[DISKIMG_SECTOR_SIZE];
-    int bno = offset/DISKIMG_SECTOR_SIZE;
+	for (int offset = 0; offset < size; offset += DISKIMG_SECTOR_SIZE) {
+		if((offset / DISKIMG_SECTOR_SIZE) % 40 != 0) 
+				continue;
+		char buf[DISKIMG_SECTOR_SIZE];
+		int bno = offset/DISKIMG_SECTOR_SIZE;
 
-    int bytesMoved = file_getblock(fs, inumber, bno, buf);
-    if (bytesMoved < 0)
-      return -1;
+		int bytesMoved = file_getblock(fs, inumber, bno, buf);
+		if (bytesMoved < 0)
+		  return -1;
 
-    if (!SHA1_Update(&shactx, buf, bytesMoved))
-      return -1;
-  }
+		if (!SHA1_Update(&shactx, buf, bytesMoved))
+		  return -1;
+	}
 
-  if (!SHA1_Final(chksum, &shactx))
-    return -1;
+	if (!SHA1_Final(chksum, &shactx))
+	  return -1;
 
-  return SHA_DIGEST_LENGTH;
-}
+	return SHA_DIGEST_LENGTH;
+	}
 
 /*
  * Compute the checksum of the specified pathname.  Assumes chksum points to a

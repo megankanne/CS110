@@ -87,8 +87,9 @@ disksim_perform_operation(int fd, int sectorNum, void* buf, bool do_read)
 
   off_t offset = sectorNum * DISKIMG_SECTOR_SIZE;
 
-  //printf("%i sector\n", sectorNum);
-
+  // printf("%i sector\n", sectorNum);
+  //  printf("%i offset\n", sectorNum * DISKIMG_SECTOR_SIZE);
+  //  printf("%i fd\n", fd);
 
   pthread_mutex_lock(&disk_mutex);
 
@@ -98,8 +99,10 @@ disksim_perform_operation(int fd, int sectorNum, void* buf, bool do_read)
     startTime = Debug_GetTimeInMicrosecs();
   }
 
-  if (lseek(fd, offset, SEEK_SET) == (off_t) -1) {
+int error;
+  if (error = lseek(fd, offset, SEEK_SET) == (off_t) -1) {
     pthread_mutex_unlock(&disk_mutex);
+	printf("error in lseek\n");
     return -1;
   }
 
