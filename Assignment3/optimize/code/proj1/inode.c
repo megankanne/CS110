@@ -10,8 +10,6 @@
 #define INODES_PER_SECTOR (DISKIMG_SECTOR_SIZE / sizeof(struct inode))
 #define NUM_PTRS_PER_SECTOR (DISKIMG_SECTOR_SIZE/sizeof(uint16_t))
 
-int cachehits = 0;
-
 
 /*
  * Return the sector containing the inode 
@@ -31,7 +29,6 @@ int FindSector(int inumber){
 int
 inode_iget(struct unixfilesystem *fs, int inumber, struct inode *inp)
 {
-	//printf("iget %i inumber\n", inumber);
 	int sector = FindSector(inumber);
 	//Check sector is an inode sector
 	if(sector > fs->superblock.s_isize + INODE_START_SECTOR){
@@ -45,16 +42,10 @@ inode_iget(struct unixfilesystem *fs, int inumber, struct inode *inp)
 		putSectorInCache(fs, sector, 0, 0, 1);
 		//...load that sector into memory
 		assert(getSectorFromCache(sector, buffer, 0, 0, 1, NULL));
-	}else{
-		//printf("sector %i found in cache!\n", sector);
-		cachehits++;
 	}
 	int offset = (inumber % INODES_PER_SECTOR) - 1; //-1 b/c offset starts at 0
 	if(inumber % INODES_PER_SECTOR == 0) { offset = INODES_PER_SECTOR - 1; } //b/c multiples of 16 are at end
-	*inp = buffer[offset];
-	
-	//if(cachehits % 10 == 0) { printf("cachehits:%i", cachehits); }
-	
+	*inp = buffer[offset];	
 	return 0;
 }
 
@@ -78,7 +69,6 @@ int GetBlockFromList(int blockNum, uint16_t *indirect_block){
 int
 inode_indexlookup(struct unixfilesystem *fs, struct inode *inp, int blockNum)
 {
-	//printf("index loopkup %i block number\n", blockNum);
 	//Check small or large
 	if((inp->i_mode & ILARG) == 0){
 		return inp->i_addr[blockNum];	
@@ -86,43 +76,24 @@ inode_indexlookup(struct unixfilesystem *fs, struct inode *inp, int blockNum)
 		int indirect_block_ptr = blockNum / NUM_PTRS_PER_SECTOR;
 		//clamp doubly indirect blocks
 		if(indirect_block_ptr > 7){ indirect_block_ptr = 7; }
-		int indirect_block_sector = inp->i_addr[indirect_block_ptr];
-		
-		//if(cachehits % 10 == 0) { printf("indirect_block_sector:%i", indirect_block_sector); }
-		//printf("indirect_block_sector:%i\n", indirect_block_sector);
-		
+		int indirect_block_sector = inp->i_addr[indirect_block_ptr];		
 		uint16_t indirect_block[NUM_PTRS_PER_SECTOR];
 		//check to see if sector is cached, if not cache it and...
 		if(!getSectorFromCache(indirect_block_sector, indirect_block, 0, 0, 1, NULL)){
-			//printf("fs->dfd %i before cache\n", fs->dfd);
 			putSectorInCache(fs, indirect_block_sector, 0, 0, 1);
-			//printf("fs->dfd %i after cache\n", fs->dfd);
-			assert(getSectorFromCache(indirect_block_sector, indirect_block, 0, 0, 1, NULL));
 			//...load that sector into memory
-			// if (diskimg_readsector(fs->dfd, indirect_block_sector, indirect_block) != DISKIMG_SECTOR_SIZE) {
-			//     fprintf(stderr, "Error reading indirect block at sector %i\n", indirect_block_sector);
-			// 	assert(0);
-			//     return -1;
-			// }
-		}else{
-			//printf("sector %i found in cache!\n", sector);
-			cachehits++;
+			assert(getSectorFromCache(indirect_block_sector, indirect_block, 0, 0, 1, NULL));
 		}
 		//Check singly or doubly indirect
 		if(indirect_block_ptr < 7){
 			return GetBlockFromList(blockNum, indirect_block);
 		}else{
-			//printf("doubly indirect!\n");
 			indirect_block_ptr = (blockNum-(NUM_PTRS_PER_SECTOR * 7))/NUM_PTRS_PER_SECTOR;
 			indirect_block_sector = GetBlockFromList(indirect_block_ptr, indirect_block);
 			uint16_t sec_indirect_block[NUM_PTRS_PER_SECTOR];
 			if(!getSectorFromCache(indirect_block_sector, sec_indirect_block, 0, 0, 1, NULL)){
 				putSectorInCache(fs, indirect_block_sector, 0, 0, 1);
-				//...load that sector into memory
 				assert(getSectorFromCache(indirect_block_sector, sec_indirect_block, 0, 0, 1, NULL));
-			}else{
-				//printf("sector %i found in cache!\n", sector);
-				cachehits++;
 			}
 			return GetBlockFromList(blockNum, sec_indirect_block);
 		}		

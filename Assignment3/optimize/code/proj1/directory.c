@@ -35,13 +35,11 @@ directory_findname(struct unixfilesystem *fs, const char *name,
 {	
 	struct inode dir;
 	struct direntv6 buffer[DIRS_PER_SECTOR];
-	//printf("init findname %i dirinumber %i fs->dfd %s\n", dirinumber, fs->dfd, name);
 	//Test that directory number given is a directory and is allocated
 	if(inode_iget(fs, dirinumber, &dir) < 0){
 		printf("Error getting inode %i\n", dirinumber);
 		return -1;
 	}
-	//printf("iget findname %i dirinumber %i fs->dfd %s\n", dirinumber, fs->dfd, name);
 	if((dir.i_mode & IFMT) != IFDIR || !(dir.i_mode & IALLOC)) { 
 		printf("inode %i not a directory or is not allocated\n", dirinumber);
 		return -1; 
@@ -49,7 +47,7 @@ directory_findname(struct unixfilesystem *fs, const char *name,
 	int blocks = getBlocks(&dir);
 	//for each block in the directory, place block in buffer
 	for(int i = 0; i < blocks; i++){
-		//printf("getblock %i sector %i inumber %i blockNum\n", sectorNum, dirinumber, i);
+		//check to see if sector is cached, if not cache it and...
 		if(!getSectorFromCache(0, &buffer, dirinumber, i, 0, fs)){
 			putSectorInCache(fs, 0, dirinumber, i, 0);
 			//...load that sector into memory

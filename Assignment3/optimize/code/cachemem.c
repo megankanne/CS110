@@ -21,7 +21,7 @@
 #include "proj1/diskimg.h"
 #include "proj1/inode.h"
 
-
+//Struct for sector metadata
 typedef struct EntryMetaData{
 	unsigned long sectorNum;
 	int added;	//higher indexes are more recent
@@ -29,6 +29,7 @@ typedef struct EntryMetaData{
 	int isinode;
 } EntryMetaData;
 
+//Struct for sector hashing
 typedef struct CacheHashEntry {
   unsigned long sectorNum;    // The sector number
   void *sector;   // Where it is located in cache memory
@@ -100,7 +101,6 @@ CacheMem_Init(int sizeInKB)
 	}
 	metadata = memPtr2;
 	position = metadata;
-	//printf("init metadata %p: position %p\n", metadata, position);
 	addedBlks = 0;
 	accessedBlks = 0;
 	return 0;
@@ -114,11 +114,19 @@ totalCacheSize(){
 	return cacheMemSizeInKB;
 }
 
+/*
+ * Least Recently Used qsort comparison function.
+ */
 int LRUcomp(const void * a, const void * b){
 	EntryMetaData *e1 = (EntryMetaData *) a;
 	EntryMetaData *e2 = (EntryMetaData *) b;
-	return e2->used - e1->used;
+	return e1->used - e2->used;
 }
+
+/*
+ * For the calls from the directory module to get the sector number 
+ * because it is not that module can't pass it in. 
+ */
 
 int getSectorNum(struct unixfilesystem *fs, int inumber, int blockNum){
 	//Find the inode
@@ -137,16 +145,16 @@ int getSectorNum(struct unixfilesystem *fs, int inumber, int blockNum){
 }
 
 /*
- * Places a disk sector in the cache
+ * Places a disk sector in the cache. If we have allocated all of the
+ * sectors possible (aka sectorsAvail == 0), then replace some sector.
+ * The sector replaced is determined by a quicksort of the sector
+ * metadata array such that the LRU is in the front. 
  * Returns 1 if sucessful and 0 if not.
  */
 int 
 putSectorInCache(struct unixfilesystem *fs, int sectorNum, int inumber, int blockNum,  int inodecall){
 	
 	if(!inodecall){	sectorNum = getSectorNum(fs, inumber, blockNum); }
-	
-	// if(sectorsAvail < 100)
-	// 	printf("sectorsAvail %i\n", sectorsAvail);
 	
 	if(sectorsAvail > 0){
 		//add sector to hash table
@@ -156,63 +164,38 @@ putSectorInCache(struct unixfilesystem *fs, int sectorNum, int inumber, int bloc
 	      	return 0;
 	    }
 		entry->sectorNum = (unsigned long) sectorNum;
-		
-		//printf("sector being cached:%i\n", sectorNum);
-		
-		//printf("fs->dfd %i before read\n", fs->dfd);
-		
 		//read sector data into next cacheMemPtr slot
 		if (diskimg_readsector(fs->dfd, sectorNum, cacheMemPtr) != DISKIMG_SECTOR_SIZE) {
 		    fprintf(stderr, "Error reading block\n");
 		    return -1;
-		}
-		//printf("fs->dfd %i after read\n", fs->dfd);
-		
+		}		
 		entry->sector = cacheMemPtr;
 		if (entry->sector == NULL) {
 		  	free(entry);
 			printf("cacheMemPtr problem \n");
 		  	return 0;
 		}
-
 	    lh_insert(cachehash,(char *) entry);
-
 	    if (lh_error(cachehash)) {
 	    	free(entry);
 			printf("hash problem\n");
 	    	return 0;
-	    }
-		
-		//printf("fs->dfd %i after hash insert\n", fs->dfd);
-		//printf("before add metadata %p: position %p\n", metadata, position);
-		
-		
+	    }		
 		//add sector metadata to array
 		position->sectorNum = (unsigned long) sectorNum;
 		position->added = addedBlks;
 		position->used = accessedBlks;
 		position ++;
-		
-		//printf("fs->dfd %i after metadata\n", fs->dfd);
-		//printf("after add metadata %p: position %p\n", metadata, position);
-		
-		
+	
 		addedBlks++;
 		accessedBlks++;
 		
-		//increment cacheMemPtr to next block of open memory
 		cacheMemPtr += DISKIMG_SECTOR_SIZE;	    
-		//decrement sectors available
 		sectorsAvail--;
-		//printf("sectorsAvail %i\n", sectorsAvail);
-		
-		//printf("fs->dfd %i before cache return\n", fs->dfd);
 		return 1;
 	}else{
-		//printf("REPLACED\n");
 		//replace some sector
 		replaced++;
-		//if(replaced % 10 == 0){ printf("replaced:%i", replaced); }
 		//sort the metadata array
 		qsort(metadata, sectorsPossible, sizeof(EntryMetaData), LRUcomp);
 		//grab associated hash table element
@@ -271,14 +254,8 @@ getSectorFromCache(int sectorNum, void *buf, int inumber, int blockNum, int inod
 		memcpy(buf, entry->sector, DISKIMG_SECTOR_SIZE);
 		return 1;
 	}
-	//else
-	//return 0
 	return 0;
 }
-
-//quick lookup of sector in cache memory
-//quick ability to choose a sector to delete based on meta data
-//secondary data structure with sorted list of hash table entries?
 
 
 

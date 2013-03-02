@@ -114,10 +114,6 @@ Fileops_getchar(int fd)
 	if (openFileTable[fd].pathname == NULL)
 	  return -1;  // fd not opened.
 
-	// Store the last fd so that you can get the last pathname in constant time
-	// without having to malloc to store the string or write to a buffer of (possibly)
-	// to small a size
-	
 	// If we are reading from the same file 
 	if(fd != lfd){
 		inumber = pathname_lookup(unixfs, openFileTable[fd].pathname);
@@ -142,12 +138,6 @@ Fileops_getchar(int fd)
 
 	blockNo = openFileTable[fd].cursor / DISKIMG_SECTOR_SIZE;
 	blockOffset =  openFileTable[fd].cursor % DISKIMG_SECTOR_SIZE;
-	
-	// printf("fd: %i size: %i\n", fd, size);
-	// 	printf("lfd: %i lsize: %i\n", lfd, lsize);
-	// 	printf("bytesMoved: %i blockOffset: %i\n", bytesMoved, blockOffset);
-	// 			printf("inumber: %i blockNo: %i\n", inumber, blockNo);
-	// 			printf("linum: %i lblockNum: %i\n", linum, lblockNum);
 
 	// If a new inumber and blockNo, read new block into cache
 	// else used the previously cached block
@@ -160,13 +150,7 @@ Fileops_getchar(int fd)
 	if (bytesMoved < 0) {
 	  return -1;
 	}
-	if(bytesMoved <= blockOffset){
-			printf("bytesMoved: %i blockOffset: %i\n", bytesMoved, blockOffset);
-			printf("inumber: %i blockNo: %i\n", inumber, blockNo);
-			printf("linum: %i lblockNum: %i\n", linum, lblockNum);
-	}
 	assert(bytesMoved > blockOffset);
-
 
 	openFileTable[fd].cursor += 1;
 	

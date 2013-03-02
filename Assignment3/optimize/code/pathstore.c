@@ -82,8 +82,6 @@ Pathstore_destory(Pathstore *store)
 	
 	lh_doall(hashtable, StoreCleanup);
 	
-	//do I need to free the entry as well? how?
-
 	lh_free(hashtable);
 }
 
@@ -147,20 +145,16 @@ Pathstore_path(Pathstore *store, char *pathname, int discardDuplicateFiles)
 	}else{
 		hashtable = (_LHASH*) (store->elementList);
 	}
-	
 	// calc checksum of pathname
 	int err = chksumfile_bypathname(fs, pathname, chksum1);
 	if (err < 0) {
     	fprintf(stderr,"Can't checksum path %s\n", pathname);
 	    return 0;
- 	}
-	//printf("numfilesseen: %i\n", numfilesseen);
-	//printf("Pathstore: %s\n", pathname);
-	
-	// see if that checksum is already in the data structure?
+ 	}	
+
 	PathstoreElement key;
-	memcpy(key.chksum, chksum1, CHKSUMFILE_SIZE);
-		
+	memcpy(key.chksum, chksum1, CHKSUMFILE_SIZE);	
+	
 	// if discardDups, see if its in table, if it is, return
 	if (discardDuplicateFiles) {
 		entry = lh_retrieve(hashtable, (char *) &key);
@@ -170,7 +164,6 @@ Pathstore_path(Pathstore *store, char *pathname, int discardDuplicateFiles)
 		}
 	}
 	
-	//printf("adding %s\n", pathname);
 	// otherwise add
 	entry = malloc(sizeof(PathstoreElement));
     if (entry == NULL) {
