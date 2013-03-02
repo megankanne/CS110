@@ -1,0 +1,129 @@
+Final Stats: with make opt
+
+medium (-c 1024):
+5.791 seconds	(723 I/Os)
+
+large (-c 1024):
+18.001 seconds	(2243 I/Os)
+
+vlarge (-c 1024):
+237.243 seconds	(29,546 I/Os)
+
+vlarge (-c 512):
+237.243 seconds	(29,546 I/Os)
+
+vlarge (-c 256):
+236.930 seconds	(29,560 I/Os)
+
+vlarge (-c 16):
+256.364 seconds	(31,988 I/Os)
+
+
+Log:
+
+[1] 
+Description: Changed fileops.c to read all of the characters from a given block before getting a new one rather than grabbing the block off the disk each time Fileops_getchar is called. I will use one of my <10 blocks of disk data per file to cache the last block used by the fileops.c module then, in the next call to getchar, check if the char at the offset is already in the cached block. 
+
+Analysis: To begin, I ran perf on the the simple image with the default latency. 38.65% of the program length was spent in disksearch > disksim_readsector with about 71% and 30% of those calls coming from inode_iget and file_getblock respectively. What was calling these two functions so often? The perf command demonstrated that in the vast majority of the cases these functions were being called by Fileops_getchar with only a few (~3%) by chksumfile_byinumber. Therefore, my time would be well spent decreasing the number of times Fileops_getchar calls file_getblock. Also, the next two top-level entries in the tree were also calls to disksearch of about 33% and 9%, so improvements in the callers of this module will result in significant performance increases.
+Also, a solution here that caches the last read block appears (from analysis of the program) to be sufficient. The calls to getchar in Fileops_read and in scan.c both read the characters sequentially from the file. Because I don't plan to use any concurrency, I don't need to worry about another thread asking for a new block and changing the cached block nor about the block itself being written to and the cache becoming outdated. 
+
+Improvement Prediction: I expect the number of calls to disksim_readsector and file_getblock to decrease dramatically. Instead of 512 (DISKIMG_SECTOR_SIZE) calls to file_getblock, the program will have to perform 1 per 512 characters (or perhaps a few less on average as not every block will be full). So I hope to see both runtime and I/O reduced by at least half. 
+
+Effectiveness: Immediately, I see a significant improvement in runtime. Before this optimization, I recorded the runtime for the simple image with the standard latency as 4.020394. After optimization, the runtime is now 1.785162. Additionally, the I/Os went from 403 to 225. I didn't perform a medium image test before the optimization (because it would take so long) but a 0 latency run with the optimization reduced the I/O (against the baseline given in the assignment writeup) from ~4,000,000 to 1,463,983 reads. 
+
+
+
+[2] 
+Description: Iterated upon my first optimization in fileops.c to remove redundant calls to pathname_lookup. Check if the fd is the same one last used and if it is, use the cached size and inumber data. If it is different, do the expensive pathname_lookup and inode_iget procedures.
+
+Analysis: I began by running perf again after my previous optimization. Similar to above, perf demonstrated that the main bottleneck was still in Fileops_getchar. However, now that bottleneck was caused by calls to pathname_lookup and to inode_iget which are expensive. Specifically, of the top disksearch system call which represents 25% of program time, 87% of those calls originated from pathname_lookup and 11% from inode_iget. The vast majority of the other 75% of the program time was spent in similar calls to disksearch. Clearly, reducing the number of pathname_lookup and inode_iget calls will improve performance.
+
+Improvement Prediction: Initially, getchar calls the expensive functions pathname_lookup and inode_iget each time it is called. This is in order to get the inumber and the file size from the inode. As these parameters don't change with successive calls to the same file, they can be cached to improve performance. Rather than both being called each time getchar is called (files (n) * file size (m)), they will only be called once per file (files (n)). So the improvement will be by a factor of the average file size.
+
+Effectiveness: As mentioned in the last entry, initially with standard latency the simple image took 1.785162 seconds and used 255 I/Os. After this optimization, the same test took 0.703564 seconds and used 88 I/Os. With 0 latency the medium test used 1,463,983 I/Os before optimization and 2,160 I/Os after optimization. 
+
+
+
+[3] 
+Description: Removal of the file content check upon checksum match in pathstore.c
+
+Analysis: To begin, I noticed that pathstore.c checks the contents of two files character by character if the file checksums match. Based on perf of the vlarge image, most of it's program time is spent in pathstore.c performing the checksum and file comparisons. Crypto library calls originating from Pathstore_path account for 35% of program time. The rest of the time is mostly also from file_getblock and inode_iget calls originating in Pathstore_path. 
+We can remove the character by character comparison because the probability of two files mapping to the same checksums (a hash collision) is 2^(-20*8) = 2^(-160). This is because the CHKSUMFILE_SIZE is 20 bytes and we have 8 bits per byte. This is an incredibly small probability. Even the vlarge image only opens 856 files, no where near enough to make a hash collision probable. So, in practice, if the checksums are equal, the files are equal. 
+
+Improvement Prediction: Because perf is not showing every function call in the stack, it is hard to tell exactly how many of the file_getblock and inode_iget calls are coming from the character by character comparison. However, removing this functionality will reduce runtime in proportion to the number of times a character by character comparison is performed. So tests I expect to see improvement in test with many files like vlarge.
+
+Effectiveness: This enhancement was not very effective with the given system configuration. It appears that "by character" comparisons were happening seldom. Runtime for the simple case went from 0.703564 to 0.688140 and for the vlarge case went from 138.880541 to 134.973177. This is a 2.2% and 2.8% improvement respectively.          
+
+
+
+[4]
+Description: Changed Pathstore data structure from a linked list to a hash table where the key is a unique checksum of a file and the value is a pointer to the file's pathname. 
+
+Analysis: Based on the analysis described in the last optimization, a significant portion of the runtime in the vlarge image was from calls to the Cryptographic library coming from checksumfile.c. So for the two tests with multiple files (simple and vlarge), removing as many of these extraneous checksums as possible will not only remove the cryptographic overhead, but also the expensive file_getblock and inode_iget that checksums require. These checksum calls were coming from SameFileIsInStore crawling the linked list of PathstoreElements and computing two new checksums for each item in the list. So 2n checksums were being calculated for each Pathstore_path call where n is the number of elements in the list. To improve this, I decided to change the Pathstore data structure from the linked list to a hash table.
+As we proved in the last log entry, the checksum is, with high probability, unique for each file. Therefore, it can be used as a unique key in a hash table that maps to a pathname.
+          
+Improvement Prediction: I expect this optimization to significantly improve the performance of the simple and vlarge tests. A checksum is only calculated once per call to Pathstore_path then stored in the table if not already present. Search for the same file in the store is now a constant time lh_retrieve call removing the necessity for both SameFileIsInStore and IsSameFile. Especially in the vlarge case, I expect this optimization to dramatically reduce the number of checksum compares from 365940 to once per Pathstore_path (which is called one per file) so 856. As a result, the disk I/Os will scale down at a similar rate of 0.2%.
+
+Effectiveness: This optimization was very effective for the vlarge! With 0 latency, the runtime for vlarge went from 134.973177 seconds to just 0.845110 seconds and 99,816,996 I/Os to just 310,624 I/Os. However, the overhead of a hash table had a negative impact on the medium and large images which each use only 1 file. It about doubled their I/Os and runtimes.
+
+
+
+[5]
+Description: Have two cases, a hash table for runs with 1+ files and just a static Pathstore element for runs with only 1 file. This is to reduce hash table and checksum calculation overhead on 1 file runs.
+
+Analysis: This is to remove the negative effects of optimization [4], the new hash table.
+
+Improvement Prediction: I expect the medium and large runs to revert to their more efficient state before optimization [4]. This is because the linked list implementation never had to compute a checksum in Pathstore_path when there is only 1 file. My implementation was calculating a checksum for a hash table with 1 item even when that checksum would never be used. When I remove this functionality, I will get the more efficient runtime. 
+
+Effectiveness: This optimization was effective. The medium image ran in 17.33587 seconds and 2160 I/Os, the large in 57.307645 and 7134 I/Os, and the vlarge in 2487.540028 and 310624 I/Os.
+
+
+
+[6]
+A few simple changes to improve performance of proj1 files. Nothing major, just cleanup of sloppy old code.
+
+
+
+[7]
+Description: Caching module for disk data sectors. First try uses a hash table to store sector number mapped to pointer to data in cachemem memory block. Lookup of the data location is constant. As of now, there is no replacement policy so when the cache is full, new sectors are not added. Also, cache is only implemented in inode_iget. 
+
+Analysis: Looked both at perf and printed out the number of calls to read sector. These together demonstrated that sectors are being read multiple times quite often! This is especially true for inode sectors gotten by inode_iget. Because for the medium and large tests, there is only 1 file, so there is only 1 inode sector ever read. So for these test, I expect a high number of cache hits and a speed improvement. 
+
+Improvement Prediction: For the medium and large tests, I expect an improvement that scales according to the number of times inode_iget is called. Perhaps a third less reads and a third faster for each test. I expect my cache to perform sub optimally on the vlarge test as I have not yet implemented a replacement policy. 
+
+Effectiveness: The medium test had about 720 cache hits reducing the reads to 1436 from 2160 and the runtime from 17.333587 to 11.513769. A 33% gain in both variables. The large test had about 2230 cache hits reducing the reads to 4897 from 7134 and the runtime from 57.307645 to 39.416862. A 31% gain in both variables. The vlarge test had about 108,970 cache hits reducing the reads to 201706 from 310624 and the runtime from 2487.54 to 1614.398. A 35% gain in both variables. It appears that vlarge also does not use more than 1 sector to hold its file inodes. 
+
+
+
+[8]
+Description: Sector replacement added. Uses an array of sector metadata that can be qsorted based upon the replacement policy desired. Default policy is LRU.  
+
+Analysis: Necessary in case we have a very small cache or a very large number of sectors being cached.  
+
+Improvement Prediction: The sort might slows the vlarge test down or the improved cache hits might speed it up. Hard to know.
+
+Effectiveness: I am very efficient! I cache commonly hit sectors like inodes and directories which, along with the LRU replacement scheme, results in very high cache hits. The vlarge (-c 256) test runs with 29,560 I/Os just 14 more than (-c 1024) and vlarge (-c 16) runs with 31,988 I/Os.
+
+
+
+[9]
+Description: Added caching of non-inode sectors in inode_indexlookup. Specifically, of first and second indirect blocks. 
+
+Analysis: After inode caching, the next most expensive caller of readsector is inode_indexlookup. After this is file_getblock which in turn calls inode_indexlookup. Therefore, I'm going to cache inode_indexlookup first. 
+
+Improvement Prediction: It appears (based on pref of medium test) that about half of the runtime is due to inode_indexlookup. Therefore, I expect to cut my reads and runtimes in half by caching blocks in this module expect for the vlarge test (because I don't yet have a replacement policy).  
+
+Effectiveness: Very effective! The medium test reduced reads to 728 from 1436 and the runtime to 5.838024 from 11.513769. A 50% gain in both variables. 
+The large test reduced reads to 2255 from 4897 and the runtime to 18.133721 from 39.416862. A 54% and 49% respectively. 
+The vlarge test reduced reads to 103364 from 201706 and the runtime to 827.512 from 1614.398. A 49% gain in both variables. 
+
+
+
+[10]
+Description: Added caching of directory sectors to directory_findname.
+
+Analysis: The vlarge test is still slow. A run of perf for the vlarge test shows that about half of the runtime is spent in directory_findname. However, since these are directory sectors, the will probably be reused and should be cached. 
+
+Improvement Prediction: This will have little or no effect on the medium and large runs as those only have 1 file in directory layer. However, I expect the runtime of the vlarge test to be halved as recursive directory search results in cache hits.
+
+Effectiveness: Successful! The reads for vlarge dropped to 55,690 from 103,364. This is a decrease of 46%.

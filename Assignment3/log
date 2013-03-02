@@ -1,0 +1,66 @@
+perf record -e cpu-clock -g ./disksearch -b testdisks/simple.img
+./disksearch -l 0 -f testdisks/simple.dat testdisks/simple.img
+
+after opt 1:
+simple 1.785162, 225
+medium -l 0 1.287735, 1,463,983
+
+after opt 2:
+simple 0.703564, 88
+medium -l 0 0.022664, 2,160
+medium perf 17.438243, 2,160
+large -l 0 0.072189, 7,134
+large perf 57.340004, 7,134
+vlarge -l 0 138.880541, 99,816,996
+
+after opt 3:
+simple 0.688140, 88
+medium perf 17.303525, 2160
+vlarge -l 0 134.973177, 99,816,996
+
+after opt 4:
+simple 0.544140, 70
+medium 34.498643, 4,306
+large 114.219220, 14,254
+vlarge l -0 0.845110, 310,624 
+
+after opt 5:
+medium 17.333587, 2160
+large 57.307645, 7134
+vlarge 2487.540028, 310624
+
+after opt 9:
+5.838, 728
+18.133, 2255
+827.512, 103364
+
+
+
+
+cs110@ubuntu:~/cs110/optimize/code$ perf record -e cpu-clock -g ./disksearch -b testdisks/large.img
+Starting index build ....
+Index disk testdisks/large.img (latency 8000) completed in 57.340004 seconds
+************ Stats ***************
+Disksim: 7134 reads, 0 writes
+Diskimg: 7134 reads, 0 writes
+Scan: 1 files, 213417 words, 1139863 characters, 1 directories, 3 dirents, 0 duplicates
+Index: 213417 stores, 11199 allocates, 0 lookups
+Pathstore:  1 stores, 0 duplicates
+Pathstore2: 0 compares, 0 checksumdiff, 0 comparesuccess, 0 comparefail
+Fileops: 2 opens, 4 reads, 1139913 getchars, 2 isfiles
+Usage: 22.861428 usertime, 33.730108 systemtime, 5 voluntary ctxt switches, 2533 involuntary ctxt switches
+
+cs110@ubuntu:~/cs110/optimize/code$ perf record -e cpu-clock -g ./disksearch -l 0 -b testdisks/vlarge.img
+Starting index build ....
+Index disk testdisks/vlarge.img (latency 0) completed in 147.752363 seconds
+************ Stats ***************
+Disksim: 99816996 reads, 0 writes
+Diskimg: 99816996 reads, 0 writes
+Scan: 856 files, 1542882 words, 13482054 characters, 1 directories, 858 dirents, 0 duplicates
+Index: 1542882 stores, 28042 allocates, 0 lookups
+Pathstore:  856 stores, 0 duplicates
+Pathstore2: 365940 compares, 365940 checksumdiff, 0 comparesuccess, 0 comparefail
+Fileops: 857 opens, 859 reads, 13496635 getchars, 857 isfiles
+Usage: 84.965310 usertime, 61.055815 systemtime, 16 voluntary ctxt switches, 7099 involuntary ctxt switches
+
+
