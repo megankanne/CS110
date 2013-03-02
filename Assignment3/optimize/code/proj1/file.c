@@ -43,7 +43,6 @@ file_getblock(struct unixfilesystem *fs, int inumber, int blockNum, void *buf)
 		printf("Error getting data sector %i\n", blockNum);
 		return -1;
 	}
-	//printf("getblock %i sector %i inumber %i blockNum\n", sectorNum, inumber, blockNum);
 	//Read the data in the sector into the buffer
 	if (diskimg_readsector(fs->dfd, sectorNum, buf) != DISKIMG_SECTOR_SIZE) {
 	    fprintf(stderr, "Error reading sector %i for block %i\n", sectorNum, blockNum);

@@ -41,8 +41,8 @@ inode_iget(struct unixfilesystem *fs, int inumber, struct inode *inp)
 	
 	struct inode buffer[INODES_PER_SECTOR];
 	//check to see if sector is cached, if not cache it and...
-	if(!getSectorFromCache(sector, buffer)){
-		putSectorInCache(fs, sector);
+	if(!getSectorFromCache(sector, buffer, 0, 0, 1, NULL)){
+		putSectorInCache(fs, sector, 0, 0, 1);
 		//...load that sector into memory
 		if (diskimg_readsector(fs->dfd, sector, buffer) != DISKIMG_SECTOR_SIZE) {
 		    fprintf(stderr, "Error reading block\n");
@@ -92,8 +92,8 @@ inode_indexlookup(struct unixfilesystem *fs, struct inode *inp, int blockNum)
 		int indirect_block_sector = inp->i_addr[indirect_block_ptr];
 		uint16_t indirect_block[NUM_PTRS_PER_SECTOR];
 		//check to see if sector is cached, if not cache it and...
-		if(!getSectorFromCache(indirect_block_sector, indirect_block)){
-			putSectorInCache(fs, indirect_block_sector);
+		if(!getSectorFromCache(indirect_block_sector, indirect_block, 0, 0, 1, NULL)){
+			putSectorInCache(fs, indirect_block_sector, 0, 0, 1);
 			//...load that sector into memory
 			if (diskimg_readsector(fs->dfd, indirect_block_sector, indirect_block) != DISKIMG_SECTOR_SIZE) {
 			    fprintf(stderr, "Error reading indirect block\n");
@@ -111,8 +111,8 @@ inode_indexlookup(struct unixfilesystem *fs, struct inode *inp, int blockNum)
 			indirect_block_ptr = (blockNum-(NUM_PTRS_PER_SECTOR * 7))/NUM_PTRS_PER_SECTOR;
 			indirect_block_sector = GetBlockFromList(indirect_block_ptr, indirect_block);
 			uint16_t sec_indirect_block[NUM_PTRS_PER_SECTOR];
-			if(!getSectorFromCache(indirect_block_sector, sec_indirect_block)){
-				putSectorInCache(fs, indirect_block_sector);
+			if(!getSectorFromCache(indirect_block_sector, sec_indirect_block, 0, 0, 1, NULL)){
+				putSectorInCache(fs, indirect_block_sector, 0, 0, 1);
 				//...load that sector into memory
 				if (diskimg_readsector(fs->dfd, indirect_block_sector, sec_indirect_block) != DISKIMG_SECTOR_SIZE) {
 				    fprintf(stderr, "Error reading indirect block\n");

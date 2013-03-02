@@ -16,8 +16,8 @@ extern void *cacheMemPtr;
 #define CACHEMEM_MAX_SIZE (64*1024*1024)
 
 int CacheMem_Init(int sizeInKB);
-int putSectorInCache(struct unixfilesystem *fs, int sectorNum);
+int putSectorInCache(struct unixfilesystem *fs, int sectorNum, int inumber, int blockNum,  int inodecall);
 int totalCacheSize();
-int getSectorFromCache(int sectorNum, void *buf);
+int getSectorFromCache(int sectorNum, void *buf, int inumber, int blockNum, int inodecall, struct unixfilesystem *fs);
 
 #endif /* _CACHEMEM_H */

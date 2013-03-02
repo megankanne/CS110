@@ -42,6 +42,7 @@ int addedBlks;
 int accessedBlks;
 int sectorsPossible;
 int replaced = 0;
+int inumseen = -1;
 
 
 /*
@@ -110,13 +111,31 @@ int LRUcomp(const void * a, const void * b){
 	return e2->used - e1->used;
 }
 
+int getSectorNum(struct unixfilesystem *fs, int inumber, int blockNum){
+	//Find the inode
+	struct inode inp;
+	if(inode_iget(fs, inumber, &inp) < 0){
+		printf("Error getting inode %i\n", inumber);
+		return -1;
+	}
+	//Find the sector number for the blockNum
+	int sectorNum = inode_indexlookup(fs, &inp, blockNum);
+	if(sectorNum == -1){
+		printf("Error getting data sector %i\n", blockNum);
+		return -1;
+	}
+	return sectorNum;
+}
+
 /*
  * Places a disk sector in the cache
  * Returns 1 if sucessful and 0 if not.
  */
 int 
-putSectorInCache(struct unixfilesystem *fs, int sectorNum){
-	//if space
+putSectorInCache(struct unixfilesystem *fs, int sectorNum, int inumber, int blockNum,  int inodecall){
+	
+	if(!inodecall){	sectorNum = getSectorNum(fs, inumber, blockNum); }
+	
 	if(sectorsAvail > 0){
 		//add sector to hash table
 		CacheHashEntry *entry = malloc(sizeof(CacheHashEntry));
@@ -158,14 +177,50 @@ putSectorInCache(struct unixfilesystem *fs, int sectorNum){
 		cacheMemPtr += DISKIMG_SECTOR_SIZE;	    
 		//decrement sectors available
 		sectorsAvail--;
+		//printf("sectorsAvail %i\n", sectorsAvail);
+		
 		return 1;
 	}else{
+		printf("replaced\n");
 		//replace some sector
 		replaced++;
 		if(replaced % 10 == 0){ printf("replaced:%i", replaced); }
 		//sort the metadata array
-		//qsort(metadata, sectorsPossible, sizeof(EntryMetaData), LRUcomp);
+		qsort(metadata, sectorsPossible, sizeof(EntryMetaData), LRUcomp);
 		//grab associated hash table element
+		CacheHashEntry key;
+		key.sectorNum = metadata->sectorNum;
+		CacheHashEntry *entry = lh_retrieve(cachehash, (char *) &key);
+		void *sectorptr = entry->sector;
+		//remove entry from hash table
+		lh_delete(entry);
+		//create new entry as above except read in the sector to sectorptr
+		entry->sectorNum = (unsigned long) sectorNum;
+		if (diskimg_readsector(fs->dfd, sectorNum, sectorptr) != DISKIMG_SECTOR_SIZE) {
+		    fprintf(stderr, "Error reading block\n");
+		    return -1;
+		}
+		entry->sector = sectorptr;
+		if (entry->sector == NULL) {
+		  	free(entry);
+				printf("sectorptr problem \n");
+		  	return 0;
+		}
+		
+		lh_insert(cachehash,(char *) entry);
+		
+		if (lh_error(cachehash)) {
+			    free(entry);
+				printf("hash problem\n");
+			    return 0;
+		}
+		//add sector metadata to array
+		metadata->sectorNum = (unsigned long) sectorNum;
+		metadata->added = addedBlks;
+		metadata->used = accessedBlks;
+		
+		accessedBlks++;
+		return 1;
 	}
 	return 0;
 }
@@ -177,7 +232,8 @@ putSectorInCache(struct unixfilesystem *fs, int sectorNum){
  * Returns 1 if sector was in cache and 0 if not.
  */
 int 
-getSectorFromCache(int sectorNum, void *buf){
+getSectorFromCache(int sectorNum, void *buf, int inumber, int blockNum, int inodecall, struct unixfilesystem *fs){
+	if(!inodecall){	sectorNum = getSectorNum(fs, inumber, blockNum); }
 	//hash table lookup
 	CacheHashEntry key;
 	key.sectorNum = sectorNum;

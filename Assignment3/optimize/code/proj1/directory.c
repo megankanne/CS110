@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include "../cachemem.h"
+
 
 #define DIRS_PER_SECTOR (int)(DISKIMG_SECTOR_SIZE/sizeof(struct direntv6))
 
@@ -45,10 +47,16 @@ directory_findname(struct unixfilesystem *fs, const char *name,
 	int blocks = getBlocks(&dir);
 	//for each block in the directory, place block in buffer
 	for(int i = 0; i < blocks; i++){
-		if(file_getblock(fs, dirinumber, i, &buffer) < 0){
-			printf("Problem getting directory %i block %i\n", dirinumber, i);
-			return -1;
-		}
+		//printf("getblock %i sector %i inumber %i blockNum\n", sectorNum, dirinumber, i);
+			if(!getSectorFromCache(0, &buffer, dirinumber, i, 0, fs)){
+				putSectorInCache(fs, 0, dirinumber, i, 0);
+				//...load that sector into memory
+				if(file_getblock(fs, dirinumber, i, &buffer) < 0){
+					printf("Problem getting directory %i block %i\n", dirinumber, i);
+					return -1;
+				}
+			}
+	
 		//for each direntv6 struct in block, compare struct.name to name, place content in dirEnt
 		for(int j = 0; j < DIRS_PER_SECTOR; j++){
 			if(strncmp(name, buffer[j].d_name, 14) == 0){
