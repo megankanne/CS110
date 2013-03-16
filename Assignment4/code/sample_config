@@ -1,0 +1,13 @@
+# This is a sample configure file for the CS110 assignment #4 web server
+#
+#    portno: <port> -  The port number the webserver should use. 0 means dynamically allocate
+portno: 0
+#    disksearch: <pathname> - The pathname of the disksearch server binary
+disksearch: ./proj3/disksearch
+#    imgfiledir: <pathname> - The pathname of the directory with the imagefiles
+imgfiledir: ./testdisks
+#    imgfile: <filename> - Add the specified filename to the list of disks to process.
+imgfile: simple.img
+
+
+

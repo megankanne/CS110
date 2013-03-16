@@ -1,0 +1,16 @@
+# Minimal test configuration
+#
+#    Dynamically allocate the port
+portno: 0
+
+#   Assume that a copy of proj3 is the directory ./proj3
+disksearch: ./proj3/disksearch
+
+
+imgfiledir: /usr/class/cs110/assn4/testdisks
+
+#    Use a single disk image - simple
+imgfile: simple.img
+
+
+
