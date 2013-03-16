@@ -51,7 +51,7 @@ ConnectToImageServer(char *imageName)
 }
 
 int
-Query_WordLookup(char *imageName, char *word, char *result, int result_maxsize)
+Query_WordLookup(char *imageName, char *word, char **result, int result_maxsize)
 {
 	int sockfd = ConnectToImageServer(imageName);
 	if (sockfd < 0) {
@@ -61,21 +61,9 @@ Query_WordLookup(char *imageName, char *word, char *result, int result_maxsize)
 	* We now have an open TCP connection to the server.
 	* Send query and get response.
 	*/
-	
-	//TO DO
-	
-	// for (int pos = 0; pos < n; pos++) {
-	// 	    int retval = read(sock, buffer + pos, 1);
-	// 	    if (retval < 0) {
-	// 	      perror("readr");
-	// 	      return -1;
-	// 	    }
-	// 	  }
-	// 	  return n;
-	
-	//send request (write?) to disksearch
+		
+	//send request to disksearch
 	//contains imageName and word to search for
-	//simple.img, alpha word
 	
 	char *linebuffer;
 	int hsize = sizeof(packetHdr);
@@ -93,12 +81,8 @@ Query_WordLookup(char *imageName, char *word, char *result, int result_maxsize)
 	
 	printf("packetsize %u\n", packetsize);
 	printf("packet %s\n", linebuffer+hsize);
-	//printf("from header %u\n", header->size);
-	//printf("from array %u\n", *linebuffer);
 	
-	
- 	
-	//start sending
+	//start sending until all outbuffer sent
     while (packetsize > 0) {
         int bytes =  write(sockfd, linebuffer, packetsize);
         if (bytes < 0) {
@@ -112,16 +96,61 @@ Query_WordLookup(char *imageName, char *word, char *result, int result_maxsize)
 	
 	//read response
 	/* You need to implement this - Note the buffer size is likely wrong. */
+	//buffer needs to be some initial value then realloc to size in header.
 	
-	char buf[1024*1024];
-	int nbytes = read(sockfd, buf, sizeof(buf));
-	if (nbytes > 0) {
-		if (nbytes > result_maxsize) {
-			nbytes = result_maxsize;
-		}
+	//read response from disksearch
+	
+	char buf[16]; //initial buffer to hold header
+	char *loc = buf;
+	unsigned int nread = 0; //the number of bytes currently read
+	//read at least size of packetHdr
+	while (nread < sizeof(packetHdr)) {
+		int bytes = read(sockfd, loc, 1);        
+        if (bytes < 0) {
+            perror("write");
+			return -1;
+        } 
+        nread += bytes;
+        loc += bytes;
+    }
+	//get the packetsize
+	packetHdr *header_r = (packetHdr *)buf;
+	unsigned int pktlen = header_r->size;
+	//malloc the a buffer to this size
+	char *respbuf = malloc(pktlen);
+	memcpy(respbuf, buf, nread);
+	char *here = respbuf + nread;
+	
+	printf("nread: %u\n", nread);
+	printf("read packet size %u\n", pktlen);
+	printf("diff %i\n", pktlen-nread);
+	
+	unsigned int diff = pktlen-nread;
+	//keep reading for packetsize-bytes already read	
+	for (unsigned int pos = 0; pos < diff; pos++) {
+	    int retval = read(sockfd, here + pos, 1);
+	    if (retval < 0) {
+	    	perror("readr");
+			return -1;
+	    }
+		nread += retval;
 	}
-	memcpy(result, buf, nbytes);
+	char *payload = respbuf + sizeof(packetHdr);
+	//printf("pos: %u\n", pos);
+	printf("nread: %u\n", nread);
+	printf("read payload %s\n", payload);
+	
+	*result = payload;
+	
+	// char buf[1024*1024];
+	// 	int nbytes = read(sockfd, buf, sizeof(buf));
+	// 	if (nbytes > 0) {
+	// 		if (nbytes > result_maxsize) {
+	// 			nbytes = result_maxsize;
+	// 		}
+	// 	}
+	// 	memcpy(result, buf, nbytes);
 	close(sockfd);
 
-	return nbytes;
+	return nread;
 }

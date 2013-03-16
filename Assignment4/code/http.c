@@ -76,21 +76,21 @@ HandleGetRequest(int connfd, char *path, char *version, char **imgFileNames, int
 	 * small. You will want to change this.
 	 */
 
-	char qresult[1024]; /* Note this is almost certainly wrong size. */
-
+	char *qresult;
 	char *image = "N/A";
 	char *word = "N/A";
 	char *pathcpy = strdup(path);
 	//If form was submitted, parse path for image and word and lookup
 	if(strchr(pathcpy, '?') != NULL){
 		ParsePath(pathcpy, &image, &word);
-		int nbytes = Query_WordLookup(image, word, qresult, sizeof(qresult)-1);
+		int nbytes = Query_WordLookup(image, word, &qresult, sizeof(qresult)-1);
 		if (nbytes < 0) {
 	  		sprintf(qresult, "ERROR\n");
 		} else {
 	  		qresult[nbytes] = 0;
 		}
 	}
+	printf("qresult: %s", qresult);
 	//printf("path %s\n", path);
 	//printf("pathcpy %s\n", pathcpy);
 	printf("image:%s word:%s\n", image, word);	

@@ -116,16 +116,19 @@ ProcessQuery(int sock)
 	
 	//perform query
 	char *response = malloc(128);
+	//char *data = response + sizeof(packetHdr);
 	int allocd = 128; //initial results size
-	int rsize = 0;
+	int rsize = sizeof(packetHdr); //response size
+	
+	packetHdr *header2 = (packetHdr *)response;
+	header2->more = 0;
+	
 	IndexLocationList *where = Index_RetrieveEntry(diskIndex, word);
 	if (where == NULL) {
-		//actually send not found along the socket somehow
-		snprintf(response, strlen(word) + 24, "Word %s not found<br>\n", word);
+		snprintf(response + rsize, strlen(word) + 21, "Word %s not found<br>\n", word);
 	}else{
-		//send the appropriate data along the socket
 		while (where) {
-			int qsize = strlen(word) + strlen(where->item.pathname) + 24;
+			int qsize = strlen(word) + strlen(where->item.pathname) + 22;
 			if(rsize + qsize > allocd){
 				response = realloc(response, allocd * 2);
 				allocd = allocd * 2;
@@ -135,15 +138,44 @@ ProcessQuery(int sock)
 			where = where->nextLocation;
 		}
 	}
-	printf("response: %s\n", response);
-	printf("%s\n", response + 80);
+	header2->size = rsize;
+	
+	// printf("response1: %s\n", response + sizeof(packetHdr) + 0);
+	// 	printf("response2: %s\n", response + sizeof(packetHdr) + 10);
+	// 	printf("response3: %s\n", response + sizeof(packetHdr) + 80);
+	// 	printf("response4: %s\n", response + sizeof(packetHdr) + 128);
+	// 	printf("response5: %s\n", response + sizeof(packetHdr) + 50);
+	// 	printf("response6: %s\n", response + sizeof(packetHdr) + 100);
+	// 	printf("response7: %s\n", response + sizeof(packetHdr) + 5);
+	// 	printf("response8: %s\n", response + sizeof(packetHdr) + 20);
+	// 	printf("response9: %s\n", response + sizeof(packetHdr) + 35);
+	// 	printf("response10: %s\n", response + sizeof(packetHdr) + 66);
+	// 	printf("response11: %s\n", response + sizeof(packetHdr) + 90);
+	// 	printf("response12: %s\n", response + sizeof(packetHdr) + 73);
+	// 	printf("response13: %s\n", response + sizeof(packetHdr) + 120);
+	printf("rsize: %i\n", header2->size);
+	printf("allocd: %i\n", allocd);
+	
 	
 		
 	//write
-	int len = write(sock, "NOT IMPLEMENTED\n", sizeof("NOT IMPLEMENTED\n"));
-	if (len != sizeof("NOT IMPLEMENTED\n")) {
-		perror("write");
-	}
+	char *linebuffer;
+	linebuffer = response;
+
+	//start sending
+    while (rsize > 0) {
+        int bytes =  write(sock, linebuffer, rsize);
+        if (bytes < 0) {
+            perror("write");
+        }
+        rsize -= bytes;
+        linebuffer += bytes;
+    }
+
+	// int len = write(sock, "NOT IMPLEMENTED\n", sizeof("NOT IMPLEMENTED\n"));
+	// 	if (len != sizeof("NOT IMPLEMENTED\n")) {
+	// 		perror("write");
+	// 	}
 
 	// Clean up the socket when done
 	close(sock);
