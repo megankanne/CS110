@@ -7,7 +7,7 @@ portno: 0
 disksearch: ./proj3/disksearch
 
 
-imgfiledir: /usr/class/cs110/assn4/testdisks
+imgfiledir: ./testdisks
 
 #    Four disks
 imgfile: simple.img

@@ -115,18 +115,28 @@ ProcessQuery(int sock)
 	
 	
 	//perform query
+	char *response = malloc(128);
+	int allocd = 128; //initial results size
+	int rsize = 0;
 	IndexLocationList *where = Index_RetrieveEntry(diskIndex, word);
 	if (where == NULL) {
 		//actually send not found along the socket somehow
-		printf("Word %s not found\n", word);
+		snprintf(response, strlen(word) + 24, "Word %s not found<br>\n", word);
 	}else{
 		//send the appropriate data along the socket
 		while (where) {
-		  printf("Word %s @ %s:%d\n", word, where->item.pathname, where->item.offset);
-		  where = where->nextLocation;
+			int qsize = strlen(word) + strlen(where->item.pathname) + 24;
+			if(rsize + qsize > allocd){
+				response = realloc(response, allocd * 2);
+				allocd = allocd * 2;
+			}
+			snprintf(response + rsize, qsize, "Word %s @ %s:%d<br>\n", word, where->item.pathname, where->item.offset);
+			rsize += qsize;
+			where = where->nextLocation;
 		}
 	}
-	
+	printf("response: %s\n", response);
+	printf("%s\n", response + 80);
 	
 		
 	//write
@@ -137,6 +147,7 @@ ProcessQuery(int sock)
 
 	// Clean up the socket when done
 	close(sock);
+	free(response);
 }
 
 static void
