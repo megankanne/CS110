@@ -34,8 +34,22 @@ int quietFlag = 0;
 int diskLatency = 8000;
 int diskBusyWaitEnable = 0;
 
+/*
+ * The index store
+ */
+static Index *diskIndex = NULL;
+static Pathstore *store = NULL;
+
+typedef struct packetHeader {
+	unsigned int size;
+	unsigned int more;
+} packetHdr;
+
 
 #define INFINITE_CACHE_SIZE (64*1024*1024)  /* 64MB is infinite */
+
+
+
 
 /*
  *************************************************************
@@ -49,23 +63,80 @@ int serverAckFd = 0;
 #include <sys/socket.h>
 #include <netinet/in.h>
 
+
+void ParsePayload(char *payload, char **image, char **word){
+	*image = strtok(payload, "?");
+	*word = strtok(NULL,"");
+}
+
 static void
 ProcessQuery(int sock)
 {
-  // Process request(s) that come in on this socket.
+	// Process request(s) that come in on this socket.
 
-  // Look at the code in QueryWord() below on how to do lookups.
+	// Look at the code in QueryWord() below on how to do lookups.
+	
+	//read
+	char buf[512];
+	char *loc = buf;
+	unsigned int nread = 0;
+	//read at least size of packetHdr
+	while (nread < sizeof(packetHdr)) {
+		int bytes = read(sock, loc, 1);        
+        if (bytes < 0) {
+            perror("write");
+        } 
+        nread += bytes;
+        loc += bytes;
+    }
+	//get the packetsize
+	packetHdr *header = (packetHdr *)buf;
+	unsigned int pktlen = header->size;
+	printf("size %u\n", pktlen);
+	
+	//keep reading for packetsize-bytes already read	
+	for (unsigned int pos = 0; pos < pktlen-nread; pos++) {
+	    int retval = read(sock, loc + pos, 1);
+	    if (retval < 0) {
+	      perror("readr");
+	    }
+	}
+	char *payload = buf;
+	payload += sizeof(packetHdr);
+	printf("payload %s\n", payload);
+	
+	//parse packet payload for image and word
+	char *image;
+	char *word;
+	ParsePayload(payload, &image, &word);
+	printf("image %s\n", image);
+	printf("word %s\n", word);
+	
+	
+	
+	//perform query
+	IndexLocationList *where = Index_RetrieveEntry(diskIndex, word);
+	if (where == NULL) {
+		//actually send not found along the socket somehow
+		printf("Word %s not found\n", word);
+	}else{
+		//send the appropriate data along the socket
+		while (where) {
+		  printf("Word %s @ %s:%d\n", word, where->item.pathname, where->item.offset);
+		  where = where->nextLocation;
+		}
+	}
+	
+	
+		
+	//write
+	int len = write(sock, "NOT IMPLEMENTED\n", sizeof("NOT IMPLEMENTED\n"));
+	if (len != sizeof("NOT IMPLEMENTED\n")) {
+		perror("write");
+	}
 
-  // Right now the protcol just writes something down the connection
-  // and closes it.
-
-  int len = write(sock, "NOT IMPLEMENTED\n", sizeof("NOT IMPLEMENTED\n"));
-  if (len != sizeof("NOT IMPLEMENTED\n")) {
-    perror("write");
-  }
-
-  // Clean up the socket when done
-  close(sock);
+	// Clean up the socket when done
+	close(sock);
 }
 
 static void
@@ -144,12 +215,6 @@ ServerMode(int serverAckFd)
  * End of code used in Assignment #4
  */
 
-
-/*
- * The index store
- */
-static Index *diskIndex = NULL;
-static Pathstore *store = NULL;
 
 int
 main(int argc, char *argv[])

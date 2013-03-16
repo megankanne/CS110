@@ -65,14 +65,11 @@ HandleGetRequest(int connfd, char *path, char *version, char **imgFileNames, int
 		"</select><br>\n"
 		"word to find: <input type='text' name='word' maxlength='32'><br>\n"
 		"<input type='submit' value='Go!'><br>\n<br>\n"
-		"Attempt to query file \'%s\' for word \'%s\' returns:\n%s\n"
+		"<p>Attempt to query file \'%s\' for word \'%s\' returns:<br>%s</p>\n"
 		"</body>\n"
 		"</html>";
 	strcat(replyMessageFormat, msg2);
 		
-		
-		//pull in list of disk images from config somehow?
-
 	/*
 	 * Make this a little more of a test by attempting to send a query to the
 	 * backend.  Note that qresult size assumes the diskresult is going to be
@@ -150,7 +147,7 @@ Http_ProcessConnection(int connfd, char **imgFileNames, int numImgFiles)
 
   DPRINTF('h', ("Got HTTP request \"%s\"\n", requestString));
 
-  printf("image file:%s\n", imgFileNames[0]);
+  //printf("image file:%s\n", imgFileNames[0]);
 
   /*
    * Process the headers until we get a blank line.  Currently the only header
@@ -213,7 +210,7 @@ Http_ProcessConnection(int connfd, char **imgFileNames, int numImgFiles)
 
 
 /*
- * Write a HTTP protocol line the specifed socket. Return -1 on error.
+ * Write a HTTP protocol line to the specifed socket. Return -1 on error.
  */
 static int
 HttpWriteLine(int sock, char *linebuffer, int size)
@@ -242,7 +239,7 @@ HttpWriteLine(int sock, char *linebuffer, int size)
 
 
 /*
- * Read a HTTP protocol line the specifed sock. Return -1 on error, otherwise
+ * Read a HTTP protocol line from the specifed sock. Return -1 on error, otherwise
  * number of bytes in the line.
  * Read and discard if line is longer than buffer.
  */
