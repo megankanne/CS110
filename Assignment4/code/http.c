@@ -21,49 +21,78 @@ static int SendTextReply(int connfd, char *status, char *text);
 
 int sendHttp = 1;
 
+
+void ParsePath(char *path, char **image, char **word){
+	char *trash;
+	trash = strtok(path,"="); //crap before the image name
+	//printf("trash %s\n", trash);
+	*image = strtok(NULL, "&");
+	//printf("image %s\n", *image);
+	trash = strtok(NULL,"="); //word=
+	//printf("trash %s\n", trash);
+	*word = strtok(NULL,"");
+	//printf("word %s\n", *word);
+}
+
 /*
  * Process an HTTP GET request.
  */
 static void
 HandleGetRequest(int connfd, char *path, char *version)
 {
-  char *replyMessageFormat =
-    "<html>\n"
-    "<h1>Welcome to the world's lamest webserver</h1>\n"
-    "<body>\n"
-    "<h2>Got a GET request</h2>\n"
-    "<h3>Path argument was: %s</h3>\n"
-    "<h3>Version was: HTTP/%s</h3>\n"
-    "Attempt to query file simple.img for word fooA returns:\n%s\n"
-    "</body>\n"
-    "</html>";
+	char *replyMessageFormat =
+		"<html>\n"
+		"<h1>Welcome to Megan's not at all lame webserver</h1>\n"
+		"<body>\n"
+		"<h2>Got a GET request</h2>\n"
+		"<h3>Path argument was: %s</h3>\n"
+		"<h3>Version was: HTTP/%s</h3>\n"
+		"<form name='input' action='' method='GET'>\n"
+		"image to search:\n<select name='images'>\n"
+		"<option value='simple.img'>simple.img</option>\n"
+		"</select><br>\n"
+		"word to find: <input type='text' name='word' maxlength='32'><br>\n"
+		"<input type='submit' value='Go!'><br>\n<br>\n"
+		"Attempt to query file \'%s\' for word \'%s\' returns:\n%s\n"
+		"</body>\n"
+		"</html>";
 
-  /*
-   * Make this a little more of a test by attempting to send a query to the
-   * backend.  Note that qresult size assumes the diskresult is going to be
-   * small. You will want to change this.
-   */
+	/*
+	 * Make this a little more of a test by attempting to send a query to the
+	 * backend.  Note that qresult size assumes the diskresult is going to be
+	 * small. You will want to change this.
+	 */
 
-  char qresult[1024]; /* Note this is almost certainly wrong size. */
-  int nbytes = Query_WordLookup("simple.img", "fooA", qresult, sizeof(qresult)-1);
+	char qresult[1024]; /* Note this is almost certainly wrong size. */
 
-  if (nbytes < 0) {
-    sprintf(qresult, "ERROR\n");
-  } else {
-    qresult[nbytes] = 0;
-  }
+	char *image = "N/A";
+	char *word = "N/A";
+	char *pathcpy = strdup(path);
+	//If form was submitted, parse path for image and word and lookup
+	if(strchr(pathcpy, '?') != NULL){
+		ParsePath(pathcpy, &image, &word);
+		int nbytes = Query_WordLookup(image, word, qresult, sizeof(qresult)-1);
+		if (nbytes < 0) {
+	  		sprintf(qresult, "ERROR\n");
+		} else {
+	  		qresult[nbytes] = 0;
+		}
+	}
+	//printf("path %s\n", path);
+	//printf("pathcpy %s\n", pathcpy);
+	printf("image:%s word:%s\n", image, word);	
 
-  char buffer[strlen(replyMessageFormat) + strlen(path) +
-              strlen(version) + strlen(qresult) + 10];
-  sprintf(buffer, replyMessageFormat, path, version, qresult);
+	char buffer[strlen(replyMessageFormat) + strlen(path) +
+	            strlen(version) + strlen(qresult) + 10];
+	sprintf(buffer, replyMessageFormat, path, version, image, word, qresult);
 
-  if (sendHttp) {
-    SendHtmlReply(connfd, "HTTP/1.0 200 OK", buffer);
-  } else {
-    /* This is mainly here to stop compiler from complaining about
-     * SendTextReply never called. */
-    SendTextReply(connfd, "HTTP/1.0 200 OK", buffer);
-  }
+	if (sendHttp) {
+	  SendHtmlReply(connfd, "HTTP/1.0 200 OK", buffer);
+	} else {
+	  /* This is mainly here to stop compiler from complaining about
+	   * SendTextReply never called. */
+	  SendTextReply(connfd, "HTTP/1.0 200 OK", buffer);
+	}
 }
 
 /*
