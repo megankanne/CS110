@@ -22,6 +22,9 @@ static int SendTextReply(int connfd, char *status, char *text);
 int sendHttp = 1;
 
 
+/*
+ * Parses the path from the GET request into the image and word
+ */
 void ParsePath(char *path, char **image, char **word){
 	char *trash;
 	trash = strtok(path,"="); //crap before the image name
@@ -38,9 +41,10 @@ void ParsePath(char *path, char **image, char **word){
  * Process an HTTP GET request.
  */
 static void
-HandleGetRequest(int connfd, char *path, char *version)
+HandleGetRequest(int connfd, char *path, char *version, char **imgFileNames, int numImgFiles)
 {
-	char *replyMessageFormat =
+	char replyMessageFormat[1024];
+	char *msg1 =
 		"<html>\n"
 		"<h1>Welcome to Megan's not at all lame webserver</h1>\n"
 		"<body>\n"
@@ -48,14 +52,26 @@ HandleGetRequest(int connfd, char *path, char *version)
 		"<h3>Path argument was: %s</h3>\n"
 		"<h3>Version was: HTTP/%s</h3>\n"
 		"<form name='input' action='' method='GET'>\n"
-		"image to search:\n<select name='images'>\n"
-		"<option value='simple.img'>simple.img</option>\n"
+		"image to search:\n<select name='images'>\n";
+	strcat(replyMessageFormat, msg1);
+	for(int i=0; i<numImgFiles; i++){
+		strcat(replyMessageFormat, "<option value='");
+		strcat(replyMessageFormat, imgFileNames[i]);
+		strcat(replyMessageFormat, "'>");
+		strcat(replyMessageFormat, imgFileNames[i]);
+		strcat(replyMessageFormat, "</option>\n");
+	}
+	char *msg2 = 
 		"</select><br>\n"
 		"word to find: <input type='text' name='word' maxlength='32'><br>\n"
 		"<input type='submit' value='Go!'><br>\n<br>\n"
 		"Attempt to query file \'%s\' for word \'%s\' returns:\n%s\n"
 		"</body>\n"
 		"</html>";
+	strcat(replyMessageFormat, msg2);
+		
+		
+		//pull in list of disk images from config somehow?
 
 	/*
 	 * Make this a little more of a test by attempting to send a query to the
@@ -122,7 +138,7 @@ HandlePostRequest(int connfd, char *path, char *version, char *contents)
  * Process a HTTP connection.
  */
 int
-Http_ProcessConnection(int connfd)
+Http_ProcessConnection(int connfd, char **imgFileNames, int numImgFiles)
 {
   /*
    * The first line should the HTTP request command.
@@ -133,6 +149,8 @@ Http_ProcessConnection(int connfd)
     return -1;
 
   DPRINTF('h', ("Got HTTP request \"%s\"\n", requestString));
+
+  printf("image file:%s\n", imgFileNames[0]);
 
   /*
    * Process the headers until we get a blank line.  Currently the only header
@@ -172,7 +190,7 @@ Http_ProcessConnection(int connfd)
   int n = sscanf(requestString, "GET %s HTTP/%s", path, version);
   if (n == 2) {
     DPRINTF('h',("Found GET request of path %s and version %s\n", path, version));
-    HandleGetRequest(connfd, path, version);
+    HandleGetRequest(connfd, path, version, imgFileNames, numImgFiles);
   }
   else {
     n = sscanf(requestString, "POST %s HTTP/%s", path, version);

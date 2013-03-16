@@ -265,7 +265,7 @@ void HandleConnections(int listenfd)
        */
       close(listenfd);
       DPRINTF('p', ("Child %d starting\n", getpid()));
-      Http_ProcessConnection(connfd);
+      Http_ProcessConnection(connfd, imgFileNames, numImgFiles);
       DPRINTF('p', ("Child %d exiting\n", getpid()));
       exit(0);
     }
