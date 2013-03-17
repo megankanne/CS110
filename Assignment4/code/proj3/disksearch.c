@@ -75,7 +75,7 @@ ProcessQuery(int sock)
 
 	
 	/* Read */
-	char buf[512];
+	char buf[256];
 	char *loc = buf;
 	unsigned int nread = 0;
 	//read at least size of packetHdr
@@ -137,9 +137,9 @@ ProcessQuery(int sock)
 			char offset[16];
 			sprintf(offset,"%d", where->item.offset);
 			
-			printf("len word: %i\n", strlen(word));
-			printf("len path: %i\n", strlen(where->item.pathname));
-			printf("len offset: %i\n", strlen(offset));
+			// printf("len word: %i\n", strlen(word));
+			// printf("len path: %i\n", strlen(where->item.pathname));
+			// printf("len offset: %i\n", strlen(offset));
 			
 			qsize = strlen(word) + strlen(where->item.pathname) + strlen(offset) + strlen("Word  @ :<br>\n") + 1;			
 			if(rsize + qsize > allocd){
@@ -163,7 +163,7 @@ ProcessQuery(int sock)
 	
 	printf("rsize: %i\n", header2->size);
 	printf("data len: %i\n", strlen(data));
-	printf("data: %s", data);
+	//printf("data: %s", data);
 	printf("allocd: %i\n", allocd);
 	
 	
