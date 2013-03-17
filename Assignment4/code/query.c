@@ -15,7 +15,6 @@
 
 typedef struct packetHeader {
 	unsigned int size;
-	unsigned int more;
 } packetHdr;
 
 
@@ -117,13 +116,13 @@ Query_WordLookup(char *imageName, char *word, char **result, int result_maxsize)
 	packetHdr *header_r = (packetHdr *)buf;
 	unsigned int pktlen = header_r->size;
 	//malloc the a buffer to this size
-	char *respbuf = malloc(pktlen);
+	char *respbuf = calloc(pktlen, 1);
 	memcpy(respbuf, buf, nread);
 	char *here = respbuf + nread;
 	
 	printf("nread: %u\n", nread);
 	printf("read packet size %u\n", pktlen);
-	printf("diff %i\n", pktlen-nread);
+	//printf("diff %i\n", pktlen-nread);
 	
 	unsigned int diff = pktlen-nread;
 	//keep reading for packetsize-bytes already read	
@@ -135,12 +134,13 @@ Query_WordLookup(char *imageName, char *word, char **result, int result_maxsize)
 	    }
 		nread += retval;
 	}
-	char *payload = respbuf + sizeof(packetHdr);
+	//char *payload = respbuf + sizeof(packetHdr);
 	//printf("pos: %u\n", pos);
 	printf("nread: %u\n", nread);
-	printf("read payload %s\n", payload);
+	//printf("payload len %s\n", strlen(respbuf + sizeof(packetHdr)));
+	printf("read payload %s\n", respbuf + sizeof(packetHdr));
 	
-	*result = payload;
+	*result = respbuf + sizeof(packetHdr);
 	
 	// char buf[1024*1024];
 	// 	int nbytes = read(sockfd, buf, sizeof(buf));

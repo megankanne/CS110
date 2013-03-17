@@ -21,6 +21,9 @@ static int SendTextReply(int connfd, char *status, char *text);
 
 int sendHttp = 1;
 
+typedef struct packetHeader {
+	unsigned int size;
+} packetHdr;
 
 /*
  * Parses the path from the GET request into the image and word
@@ -53,7 +56,7 @@ HandleGetRequest(int connfd, char *path, char *version, char **imgFileNames, int
 		"<h3>Version was: HTTP/%s</h3>\n"
 		"<form name='input' action='' method='GET'>\n"
 		"image to search:\n<select name='images'>\n";
-	strcat(replyMessageFormat, msg1);
+	strcpy(replyMessageFormat, msg1);
 	for(int i=0; i<numImgFiles; i++){
 		strcat(replyMessageFormat, "<option value='");
 		strcat(replyMessageFormat, imgFileNames[i]);
@@ -75,6 +78,9 @@ HandleGetRequest(int connfd, char *path, char *version, char **imgFileNames, int
 	 * backend.  Note that qresult size assumes the diskresult is going to be
 	 * small. You will want to change this.
 	 */
+	
+	printf("path %s\n", path);
+	
 
 	char *qresult;
 	char *image = "N/A";
@@ -83,29 +89,40 @@ HandleGetRequest(int connfd, char *path, char *version, char **imgFileNames, int
 	//If form was submitted, parse path for image and word and lookup
 	if(strchr(pathcpy, '?') != NULL){
 		ParsePath(pathcpy, &image, &word);
-		int nbytes = Query_WordLookup(image, word, &qresult, sizeof(qresult)-1);
+		int nbytes = Query_WordLookup(image, word, &qresult, 0);
 		if (nbytes < 0) {
 	  		sprintf(qresult, "ERROR\n");
 		} else {
-	  		qresult[nbytes] = 0;
+	  		//qresult[nbytes] = 0; ??? why?
+		}
+		char resultbuf[strlen(replyMessageFormat) + strlen(path) +
+		            strlen(version) + strlen(qresult) + 10];
+		sprintf(resultbuf, replyMessageFormat, path, version, image, word, qresult);
+		free(qresult - sizeof(packetHdr)); //-4 to return to beginning because qresult points to after the header.
+		if (sendHttp) {
+		  SendHtmlReply(connfd, "HTTP/1.0 200 OK", resultbuf);
+		} else {
+		  /* This is mainly here to stop compiler from complaining about
+		   * SendTextReply never called. */
+		  SendTextReply(connfd, "HTTP/1.0 200 OK", resultbuf);
+		}
+	}else{
+		char noqbuf[strlen(replyMessageFormat) + strlen(path) +
+		            strlen(version) + strlen("No query") + 10];
+		sprintf(noqbuf, replyMessageFormat, path, version, image, word, "No query");
+		if (sendHttp) {
+		  SendHtmlReply(connfd, "HTTP/1.0 200 OK", noqbuf);
+		} else {
+		  /* This is mainly here to stop compiler from complaining about
+		   * SendTextReply never called. */
+		  SendTextReply(connfd, "HTTP/1.0 200 OK", noqbuf);
 		}
 	}
-	printf("qresult: %s", qresult);
-	//printf("path %s\n", path);
+	//printf("qresult: %s", qresult);
 	//printf("pathcpy %s\n", pathcpy);
-	printf("image:%s word:%s\n", image, word);	
-
-	char buffer[strlen(replyMessageFormat) + strlen(path) +
-	            strlen(version) + strlen(qresult) + 10];
-	sprintf(buffer, replyMessageFormat, path, version, image, word, qresult);
-
-	if (sendHttp) {
-	  SendHtmlReply(connfd, "HTTP/1.0 200 OK", buffer);
-	} else {
-	  /* This is mainly here to stop compiler from complaining about
-	   * SendTextReply never called. */
-	  SendTextReply(connfd, "HTTP/1.0 200 OK", buffer);
-	}
+	//printf("image:%s word:%s\n", image, word);	
+	
+	free(pathcpy);
 }
 
 /*

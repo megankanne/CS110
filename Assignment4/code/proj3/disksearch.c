@@ -42,7 +42,6 @@ static Pathstore *store = NULL;
 
 typedef struct packetHeader {
 	unsigned int size;
-	unsigned int more;
 } packetHdr;
 
 
@@ -74,10 +73,9 @@ ProcessQuery(int sock)
 {
 	// Process request(s) that come in on this socket.
 
-	// Look at the code in QueryWord() below on how to do lookups.
 	
-	//read
-	char buf[512];
+	/* Read */
+	char buf[16];
 	char *loc = buf;
 	unsigned int nread = 0;
 	//read at least size of packetHdr
@@ -103,57 +101,70 @@ ProcessQuery(int sock)
 	}
 	char *payload = buf;
 	payload += sizeof(packetHdr);
-	printf("payload %s\n", payload);
+	//printf("payload %s\n", payload);
 	
 	//parse packet payload for image and word
 	char *image;
 	char *word;
 	ParsePayload(payload, &image, &word);
-	printf("image %s\n", image);
+	//printf("image %s\n", image);
 	printf("word %s\n", word);
 	
 	
 	
-	//perform query
-	char *response = malloc(128);
-	//char *data = response + sizeof(packetHdr);
+	/* Perform query */
+	
+	//calloc b/c of fun bug where different calls ask for the same heap chunk post free
+	//which still contains the last response, so strcat contatenates new response onto old
+	char *response = calloc(128, 1); 
+	char *data = response + sizeof(packetHdr);
 	int allocd = 128; //initial results size
 	int rsize = sizeof(packetHdr); //response size
+	int qsize = 0;
 	
 	packetHdr *header2 = (packetHdr *)response;
 	header2->more = 0;
 	
 	IndexLocationList *where = Index_RetrieveEntry(diskIndex, word);
 	if (where == NULL) {
-		snprintf(response + rsize, strlen(word) + 21, "Word %s not found<br>\n", word);
+		qsize = strlen(word) + strlen("Word  not found<br>\n") + 1;
+		strcat(data, "Word ");
+		strcat(data, word);
+		strcat(data, " not found<br>\n");
+		rsize += qsize;
 	}else{
-		while (where) {
-			int qsize = strlen(word) + strlen(where->item.pathname) + 22;
+		while (where) {	
+			//deal with converting the offset number to a string
+			char offset[16];
+			sprintf(offset,"%d", where->item.offset);
+			
+			printf("len word: %i\n", strlen(word));
+			printf("len path: %i\n", strlen(where->item.pathname));
+			printf("len offset: %i\n", strlen(offset));
+			
+			qsize = strlen(word) + strlen(where->item.pathname) + strlen(offset) + strlen("Word  @ :<br>\n") + 1;			
 			if(rsize + qsize > allocd){
+				printf("reallocing to %i\n", allocd * 2);				
 				response = realloc(response, allocd * 2);
 				allocd = allocd * 2;
 			}
-			snprintf(response + rsize, qsize, "Word %s @ %s:%d<br>\n", word, where->item.pathname, where->item.offset);
+			strncat(data, "Word ", 5);
+			strncat(data, word, strlen(word));
+			strncat(data, " @ ", 3);
+			strncat(data, where->item.pathname, strlen(where->item.pathname)); 
+			strncat(data, ":", 1);	
+			strncat(data, offset, strlen(offset));
+			strncat(data, "<br>\n", 6);
+			//snprintf(response + rsize, qsize, "Word %s @ %s:%d<br>\n", word, where->item.pathname, where->item.offset);
 			rsize += qsize;
 			where = where->nextLocation;
 		}
 	}
 	header2->size = rsize;
 	
-	// printf("response1: %s\n", response + sizeof(packetHdr) + 0);
-	// 	printf("response2: %s\n", response + sizeof(packetHdr) + 10);
-	// 	printf("response3: %s\n", response + sizeof(packetHdr) + 80);
-	// 	printf("response4: %s\n", response + sizeof(packetHdr) + 128);
-	// 	printf("response5: %s\n", response + sizeof(packetHdr) + 50);
-	// 	printf("response6: %s\n", response + sizeof(packetHdr) + 100);
-	// 	printf("response7: %s\n", response + sizeof(packetHdr) + 5);
-	// 	printf("response8: %s\n", response + sizeof(packetHdr) + 20);
-	// 	printf("response9: %s\n", response + sizeof(packetHdr) + 35);
-	// 	printf("response10: %s\n", response + sizeof(packetHdr) + 66);
-	// 	printf("response11: %s\n", response + sizeof(packetHdr) + 90);
-	// 	printf("response12: %s\n", response + sizeof(packetHdr) + 73);
-	// 	printf("response13: %s\n", response + sizeof(packetHdr) + 120);
 	printf("rsize: %i\n", header2->size);
+	printf("data len: %i\n", strlen(data));
+	printf("data: %s", data);
 	printf("allocd: %i\n", allocd);
 	
 	
