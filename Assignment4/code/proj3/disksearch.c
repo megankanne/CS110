@@ -75,7 +75,7 @@ ProcessQuery(int sock)
 
 	
 	/* Read */
-	char buf[16];
+	char buf[512];
 	char *loc = buf;
 	unsigned int nread = 0;
 	//read at least size of packetHdr
@@ -123,7 +123,6 @@ ProcessQuery(int sock)
 	int qsize = 0;
 	
 	packetHdr *header2 = (packetHdr *)response;
-	header2->more = 0;
 	
 	IndexLocationList *where = Index_RetrieveEntry(diskIndex, word);
 	if (where == NULL) {
