@@ -46,6 +46,7 @@ void ParsePath(char *path, char **image, char **word){
 static void
 HandleGetRequest(int connfd, char *path, char *version, char **imgFileNames, int numImgFiles)
 {
+	//Build site template
 	char replyMessageFormat[1024];
 	char *msg1 =
 		"<html>\n"
@@ -83,15 +84,7 @@ HandleGetRequest(int connfd, char *path, char *version, char **imgFileNames, int
 		"</html>";
 	strcat(replyMessageFormat, msg2);
 		
-	/*
-	 * Make this a little more of a test by attempting to send a query to the
-	 * backend.  Note that qresult size assumes the diskresult is going to be
-	 * small. You will want to change this.
-	 */
-	
-	//printf("path %s\n", path);
-	
-
+	//Query the backend
 	char *qresult;
 	char *image = "N/A";
 	char *word = "N/A";
@@ -125,10 +118,7 @@ HandleGetRequest(int connfd, char *path, char *version, char **imgFileNames, int
 		   * SendTextReply never called. */
 		  SendTextReply(connfd, "HTTP/1.0 200 OK", noqbuf);
 		}
-	}
-	//printf("qresult: %s", qresult);
-	//printf("pathcpy %s\n", pathcpy);
-	//printf("image:%s word:%s\n", image, word);	
+	}	
 	
 	free(pathcpy);
 }

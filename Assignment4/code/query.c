@@ -49,6 +49,11 @@ ConnectToImageServer(char *imageName)
   return sockfd;
 }
 
+
+/*
+ * Implements the communication protocol with the disksearch as described
+ * in discussion.txt.
+ */
 int
 Query_WordLookup(char *imageName, char *word, char **result)
 {
@@ -56,14 +61,15 @@ Query_WordLookup(char *imageName, char *word, char **result)
 	if (sockfd < 0) {
 		return -1;
 	}
-	/*
-	* We now have an open TCP connection to the server.
-	* Send query and get response.
-	*/
-		
-	//send request to disksearch
-	//contains imageName and word to search for
 	
+	/* We now have an open TCP connection to the server.
+	 * Send query and get response.
+	 */
+	
+	/*
+	 * We send a request to disksearch which contains the 
+	 * imageName and word to search for
+	 */
 	char *linebuffer;
 	int hsize = sizeof(packetHdr);
 	unsigned int packetsize = hsize + strlen(imageName) + strlen(word) + 10; //3 for delimiter and terminating chars
@@ -76,9 +82,6 @@ Query_WordLookup(char *imageName, char *word, char **result)
 	packetHdr *header = (packetHdr *)outbuffer;
 	header->size = packetsize;
 	snprintf(linebuffer + hsize, packetsize - hsize, "%s?%s", imageName, word);
-	
-	printf("packetsize %u\n", packetsize);
-	printf("packet %s\n", linebuffer+hsize);
 	
 	//start sending until all outbuffer sent
     while (packetsize > 0) {
@@ -93,12 +96,10 @@ Query_WordLookup(char *imageName, char *word, char **result)
     }	
 
 	
-	//read response
-	/* You need to implement this - Note the buffer size is likely wrong. */
-	//buffer needs to be some initial value then realloc to size in header.
-	
-	//read response from disksearch
-	
+	/*
+	 * We read a response from disksearch, calloc space for it 
+	 * and point the point result to this memory.
+	 */	
 	char buf[16]; //initial buffer to hold header
 	char *loc = buf;
 	unsigned int nread = 0; //the number of bytes currently read
@@ -121,8 +122,7 @@ Query_WordLookup(char *imageName, char *word, char **result)
 		*result = calloc(16, 1) + sizeof(packetHdr);
 		return -1;
 	}
-	// printf("nread: %u\n", nread);
-	// printf("read packet size %u\n", pktlen);
+
 	//malloc the a buffer to this size
 	char *respbuf = calloc(pktlen, 1);
 	if (respbuf == NULL) {
@@ -132,10 +132,6 @@ Query_WordLookup(char *imageName, char *word, char **result)
     }
 	memcpy(respbuf, buf, nread);
 	char *here = respbuf + nread;
-	
-	
-	//printf("diff %i\n", pktlen-nread);
-	
 	unsigned int diff = pktlen-nread;
 	//keep reading for packetsize-bytes already read	
 	for (unsigned int pos = 0; pos < diff; pos++) {
@@ -147,22 +143,9 @@ Query_WordLookup(char *imageName, char *word, char **result)
 	    }
 		nread += retval;
 	}
-	//char *payload = respbuf + sizeof(packetHdr);
-	//printf("pos: %u\n", pos);
-	//printf("nread: %u\n", nread);
-	//printf("payload len %s\n", strlen(respbuf + sizeof(packetHdr)));
-	//printf("read payload %s\n", respbuf + sizeof(packetHdr));
 	
 	*result = respbuf + sizeof(packetHdr);
 	
-	// char buf[1024*1024];
-	// 	int nbytes = read(sockfd, buf, sizeof(buf));
-	// 	if (nbytes > 0) {
-	// 		if (nbytes > result_maxsize) {
-	// 			nbytes = result_maxsize;
-	// 		}
-	// 	}
-	// 	memcpy(result, buf, nbytes);
 	close(sockfd);
 
 	return nread;

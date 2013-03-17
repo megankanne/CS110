@@ -17,3 +17,9 @@ The receiving side first reads enough bytes from the socket to get the entire he
 webserver/browser interface:
 The webserver responses to GET requests from the browser. These GET requests are sent either from the browser when initiating a connection (or getting the favicon) or when the user submits a form. 
 The server responds to a GET request as follows. In Http_ProcessConnection, it reads http data from the socket with HttpReadLine. It then parses this data for the path and version info. The GET handling function, HandleGetRequest, first builds the html of the page into a buffer. Then it checks if the path data from the GET request is from the form by parsing it for a '?'. This assumes the user doesn't mess with the protocol by creating a malformed URL. If a '?' is found, it parses the path for the word and image and queries the disksearch. Then is writes the results to another buffer using sprintf and the template from the first buffer. Finally it uses HttpWriteLine to send an html reply with the contents of the second buffer as the html content through the socket.
+
+Other:
+
+These solutions fully support concurrency and make no assumptions about input size. All buffers containing request or result strings are dynamically allocated on the stack if the string lengths can be found and on the heap if they can't. 
+
+Completed on the VM and tested in Firefox 3.6.13 for Ubuntu
