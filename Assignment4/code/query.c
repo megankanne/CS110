@@ -75,7 +75,6 @@ Query_WordLookup(char *imageName, char *word, char **result, int result_maxsize)
 	linebuffer = outbuffer;
 	packetHdr *header = (packetHdr *)outbuffer;
 	header->size = packetsize;
-	header->more = 0;
 	snprintf(linebuffer + hsize, packetsize - hsize, "%s?%s", imageName, word);
 	
 	printf("packetsize %u\n", packetsize);
@@ -136,9 +135,9 @@ Query_WordLookup(char *imageName, char *word, char **result, int result_maxsize)
 	}
 	//char *payload = respbuf + sizeof(packetHdr);
 	//printf("pos: %u\n", pos);
-	printf("nread: %u\n", nread);
+	//printf("nread: %u\n", nread);
 	//printf("payload len %s\n", strlen(respbuf + sizeof(packetHdr)));
-	printf("read payload %s\n", respbuf + sizeof(packetHdr));
+	//printf("read payload %s\n", respbuf + sizeof(packetHdr));
 	
 	*result = respbuf + sizeof(packetHdr);
 	
