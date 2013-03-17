@@ -50,7 +50,7 @@ ConnectToImageServer(char *imageName)
 }
 
 int
-Query_WordLookup(char *imageName, char *word, char **result, int result_maxsize)
+Query_WordLookup(char *imageName, char *word, char **result)
 {
 	int sockfd = ConnectToImageServer(imageName);
 	if (sockfd < 0) {

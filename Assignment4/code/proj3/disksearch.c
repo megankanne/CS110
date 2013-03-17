@@ -75,7 +75,7 @@ ProcessQuery(int sock)
 
 	
 	/* Read */
-	char buf[256];
+	char buf[512];
 	char *loc = buf;
 	unsigned int nread = 0;
 	//read at least size of packetHdr
@@ -92,14 +92,25 @@ ProcessQuery(int sock)
 	unsigned int pktlen = header->size;
 	printf("size %u\n", pktlen);
 	
+	char *respbuf = calloc(pktlen, 1);
+	memcpy(respbuf, buf, nread);
+	char *here = respbuf + nread;
+	
+	printf("nread: %u\n", nread);
+	printf("read packet size %u\n", pktlen);
+	//printf("diff %i\n", pktlen-nread);
+	
+	unsigned int diff = pktlen-nread;
 	//keep reading for packetsize-bytes already read	
-	for (unsigned int pos = 0; pos < pktlen-nread; pos++) {
-	    int retval = read(sock, loc + pos, 1);
+	for (unsigned int pos = 0; pos < diff; pos++) {
+	    int retval = read(sock, here + pos, 1);
 	    if (retval < 0) {
-	      perror("readr");
+	    	perror("readr");
 	    }
+		nread += retval;
 	}
-	char *payload = buf;
+	
+	char *payload = respbuf;
 	payload += sizeof(packetHdr);
 	//printf("payload %s\n", payload);
 	
@@ -137,22 +148,36 @@ ProcessQuery(int sock)
 			char offset[16];
 			sprintf(offset,"%d", where->item.offset);
 			
-			// printf("len word: %i\n", strlen(word));
-			// printf("len path: %i\n", strlen(where->item.pathname));
-			// printf("len offset: %i\n", strlen(offset));
+			printf("len word: %i\n", strlen(word));
+			printf("len path: %i\n", strlen(where->item.pathname));
+			printf("len offset: %i\n", strlen(offset));
 			
 			qsize = strlen(word) + strlen(where->item.pathname) + strlen(offset) + strlen("Word  @ :<br>\n") + 1;			
 			if(rsize + qsize > allocd){
 				printf("reallocing to %i\n", allocd * 2);				
 				response = realloc(response, allocd * 2);
+				printf("here1\n");
 				allocd = allocd * 2;
+				data = response + sizeof(packetHdr);
 			}
 			strncat(data, "Word ", 5);
+			printf("here2\n");
+			
 			strncat(data, word, strlen(word));
+			printf("here3\n");
+			
 			strncat(data, " @ ", 3);
-			strncat(data, where->item.pathname, strlen(where->item.pathname)); 
-			strncat(data, ":", 1);	
+			printf("here4\n");
+			
+			strncat(data, where->item.pathname, strlen(where->item.pathname)); //overwriting somthing
+			printf("here5\n");
+			 
+			strncat(data, ":", 1);
+			printf("here6\n");
+				
 			strncat(data, offset, strlen(offset));
+			printf("here7\n");
+			
 			strncat(data, "<br>\n", 6);
 			//snprintf(response + rsize, qsize, "Word %s @ %s:%d<br>\n", word, where->item.pathname, where->item.offset);
 			rsize += qsize;
@@ -163,7 +188,7 @@ ProcessQuery(int sock)
 	
 	printf("rsize: %i\n", header2->size);
 	printf("data len: %i\n", strlen(data));
-	//printf("data: %s", data);
+	printf("data: %s", data);
 	printf("allocd: %i\n", allocd);
 	
 	

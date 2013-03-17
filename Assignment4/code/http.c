@@ -49,7 +49,7 @@ HandleGetRequest(int connfd, char *path, char *version, char **imgFileNames, int
 	char replyMessageFormat[1024];
 	char *msg1 =
 		"<html>\n"
-		"<h1>Welcome to Megan's not at all lame webserver</h1>\n"
+		"<h2>Welcome to Megan's not-at-all lame webserver</h2>\n"
 		"<body>\n"
 		"<script type='text/javascript'>\n"
 		"function IsEmpty(){\n"
@@ -63,9 +63,7 @@ HandleGetRequest(int connfd, char *path, char *version, char **imgFileNames, int
 		    "return true;\n"
 		"}\n"
 		"</script>\n"
-		"<h2>Got a GET request</h2>\n"
-		"<h3>Path argument was: %s</h3>\n"
-		"<h3>Version was: HTTP/%s</h3>\n"
+		"<h3>Please choose a disk and enter a word below to find that word on the disk.</h3>\n"
 		"<form name='input' action='' method='GET'>\n"
 		"image to search:\n<select name='images'>\n";
 	strcpy(replyMessageFormat, msg1);
@@ -91,7 +89,7 @@ HandleGetRequest(int connfd, char *path, char *version, char **imgFileNames, int
 	 * small. You will want to change this.
 	 */
 	
-	printf("path %s\n", path);
+	//printf("path %s\n", path);
 	
 
 	char *qresult;
@@ -101,15 +99,14 @@ HandleGetRequest(int connfd, char *path, char *version, char **imgFileNames, int
 	//If form was submitted, parse path for image and word and lookup
 	if(strchr(pathcpy, '?') != NULL){
 		ParsePath(pathcpy, &image, &word);
-		int nbytes = Query_WordLookup(image, word, &qresult, 0);
+		int nbytes = Query_WordLookup(image, word, &qresult);
 		if (nbytes < 0) {
 	  		sprintf(qresult, "ERROR\n");
 		} else {
 	  		//qresult[nbytes] = 0; ??? why?
 		}
-		char resultbuf[strlen(replyMessageFormat) + strlen(path) +
-		            strlen(version) + strlen(qresult) + 10];
-		sprintf(resultbuf, replyMessageFormat, path, version, image, word, qresult);
+		char resultbuf[strlen(replyMessageFormat) + strlen(image) + strlen(word) + strlen(qresult) + 10];
+		sprintf(resultbuf, replyMessageFormat, image, word, qresult);
 		free(qresult - sizeof(packetHdr)); //-4 to return to beginning because qresult points to after the header.
 		if (sendHttp) {
 		  SendHtmlReply(connfd, "HTTP/1.0 200 OK", resultbuf);
@@ -119,9 +116,8 @@ HandleGetRequest(int connfd, char *path, char *version, char **imgFileNames, int
 		  SendTextReply(connfd, "HTTP/1.0 200 OK", resultbuf);
 		}
 	}else{
-		char noqbuf[strlen(replyMessageFormat) + strlen(path) +
-		            strlen(version) + strlen("No query") + 10];
-		sprintf(noqbuf, replyMessageFormat, path, version, image, word, "No query");
+		char noqbuf[strlen(replyMessageFormat) + strlen(image) + strlen(word) + strlen("No query") + 10];
+		sprintf(noqbuf, replyMessageFormat, image, word, "No query");
 		if (sendHttp) {
 		  SendHtmlReply(connfd, "HTTP/1.0 200 OK", noqbuf);
 		} else {
