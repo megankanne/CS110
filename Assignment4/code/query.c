@@ -85,6 +85,7 @@ Query_WordLookup(char *imageName, char *word, char **result)
         int bytes =  write(sockfd, linebuffer, packetsize);
         if (bytes < 0) {
             perror("write");
+			*result = calloc(16, 1) + sizeof(packetHdr);
             return -1;
         }
         packetsize -= bytes;
@@ -106,6 +107,7 @@ Query_WordLookup(char *imageName, char *word, char **result)
 		int bytes = read(sockfd, loc, 1);        
         if (bytes < 0) {
             perror("write");
+			*result = calloc(16, 1) + sizeof(packetHdr);
 			return -1;
         } 
         nread += bytes;
@@ -114,13 +116,24 @@ Query_WordLookup(char *imageName, char *word, char **result)
 	//get the packetsize
 	packetHdr *header_r = (packetHdr *)buf;
 	unsigned int pktlen = header_r->size;
+	if(pktlen == 0){
+		printf("0 packetlen\n");
+		*result = calloc(16, 1) + sizeof(packetHdr);
+		return -1;
+	}
+	// printf("nread: %u\n", nread);
+	// printf("read packet size %u\n", pktlen);
 	//malloc the a buffer to this size
 	char *respbuf = calloc(pktlen, 1);
+	if (respbuf == NULL) {
+		printf("calloc problem\n");
+		*result = calloc(16, 1) + sizeof(packetHdr);
+      	return -1;
+    }
 	memcpy(respbuf, buf, nread);
 	char *here = respbuf + nread;
 	
-	printf("nread: %u\n", nread);
-	printf("read packet size %u\n", pktlen);
+	
 	//printf("diff %i\n", pktlen-nread);
 	
 	unsigned int diff = pktlen-nread;
@@ -129,6 +142,7 @@ Query_WordLookup(char *imageName, char *word, char **result)
 	    int retval = read(sockfd, here + pos, 1);
 	    if (retval < 0) {
 	    	perror("readr");
+			*result = calloc(16, 1) + sizeof(packetHdr);
 			return -1;
 	    }
 		nread += retval;

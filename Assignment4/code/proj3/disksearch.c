@@ -93,6 +93,10 @@ ProcessQuery(int sock)
 	printf("size %u\n", pktlen);
 	
 	char *respbuf = calloc(pktlen, 1);
+	if (respbuf == NULL) {
+		printf("calloc problem\n");
+      	return;
+    }
 	memcpy(respbuf, buf, nread);
 	char *here = respbuf + nread;
 	

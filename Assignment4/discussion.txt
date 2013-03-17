@@ -1,0 +1,19 @@
+Section 1: Web interface usage:
+
+Usage of the web interface is pretty simple.
+1) Choose an disk image from the drop down. 
+2) Enter a word in the text box.
+3) Click Go!
+If you enter non-alpha characters or don't enter anything, a javascript validation function alerts you of your error.
+
+
+
+Section 2: Protocols Description:
+
+webserver/disksearch:
+For communication between the webserver and disksearch the connecting side creates a buffer dynamically with the size of the message to be sent. It then appends a header to the beginning of the packet buffer. Inside this header is the total size of the packet including the header itself and the data. It then appends the data to the packet and writes to the socket until the entire packet has been sent. The most challenging part of this was for disksearch to iterate through the linked list and generating a string that is a concatenation of all of the results of the query. The string concatenation was full go bugs. 
+The receiving side first reads enough bytes from the socket to get the entire header, then gets the packet size from the header by casting it to a header struct. It then mallocs a buffer to hold the packet and reads the rest of the packet from the socket into the buffer one byte at a time using a for loop.
+
+webserver/browser interface:
+The webserver responses to GET requests from the browser. These GET requests are sent either from the browser when initiating a connection (or getting the favicon) or when the user submits a form. 
+The server responds to a GET request as follows. In Http_ProcessConnection, it reads http data from the socket with HttpReadLine. It then parses this data for the path and version info. The GET handling function, HandleGetRequest, first builds the html of the page into a buffer. Then it checks if the path data from the GET request is from the form by parsing it for a '?'. This assumes the user doesn't mess with the protocol by creating a malformed URL. If a '?' is found, it parses the path for the word and image and queries the disksearch. Then is writes the results to another buffer using sprintf and the template from the first buffer. Finally it uses HttpWriteLine to send an html reply with the contents of the second buffer as the html content through the socket.
