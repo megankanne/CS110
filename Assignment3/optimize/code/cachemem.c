@@ -11,9 +11,9 @@
 #include <inttypes.h> // for PRIu64
 #include <openssl/lhash.h>
 
-//#if defined(__APPLE__)
+#if defined(__APPLE__)
   #define _LHASH LHASH
-//#endif
+#endif
 
 #include <sys/mman.h>
 
